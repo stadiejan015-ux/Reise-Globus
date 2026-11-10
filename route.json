@@ -17,16 +17,34 @@
       "lng": 54.3773,
       "verkehrsmittel": "flugzeug",
       "datum": "",
-      "notiz": ""
+      "notiz": "",
+      "unterpunkte": [
+        {
+          "ort": "Dubai",
+          "lat": 25.2048,
+          "lng": 55.2708,
+          "verkehrsmittel": "auto",
+          "notiz": ""
+        }
+      ]
     },
     {
       "ort": "Bali",
       "land": "Indonesien",
-      "lat": -8.6500,
+      "lat": -8.65,
       "lng": 115.2167,
       "verkehrsmittel": "flugzeug",
       "datum": "",
-      "notiz": ""
+      "notiz": "",
+      "unterpunkte": [
+        {
+          "ort": "Nusa Penida",
+          "lat": -8.7278,
+          "lng": 115.5444,
+          "verkehrsmittel": "boot",
+          "notiz": ""
+        }
+      ]
     },
     {
       "ort": "Singapur",
@@ -44,12 +62,28 @@
       "lng": 104.9282,
       "verkehrsmittel": "flugzeug",
       "datum": "",
-      "notiz": ""
+      "notiz": "",
+      "unterpunkte": [
+        {
+          "ort": "Sihanoukville",
+          "lat": 10.6093,
+          "lng": 103.5296,
+          "verkehrsmittel": "auto",
+          "notiz": ""
+        },
+        {
+          "ort": "Koh Rong",
+          "lat": 10.7167,
+          "lng": 103.25,
+          "verkehrsmittel": "boot",
+          "notiz": ""
+        }
+      ]
     },
     {
       "ort": "Kuala Lumpur",
       "land": "Malaysia",
-      "lat": 3.1390,
+      "lat": 3.139,
       "lng": 101.6869,
       "verkehrsmittel": "flugzeug",
       "datum": "",

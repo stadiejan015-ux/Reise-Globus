@@ -9,6 +9,10 @@
 //   (nur am         Linie      zoomen
 //   Anfang)         wächst
 //
+// Auf dem Rückweg eines Ausflugs wird nicht angehalten: descend, linger
+// und rise dauern dann 0 ms, das Fahrzeug fährt einfach durch.
+// Bei Ausflügen bleibt die Kamera in der Region (siehe map.travelZoom).
+//
 // Dazu kommt "fly": eine freie Kamerafahrt, z. B. zum Start, nach einem
 // Sprung, nach einer Pause (falls jemand die Karte bewegt hat) oder am Ende
 // zur Gesamtansicht. Danach geht es mit der Phase "then" weiter.
@@ -21,7 +25,8 @@ import { angleBetween, clamp, easeInOutCubic, easeInOutSine, lerp, slerp } from 
 
 const TIMING = {
   hold: 1200, // ms Pause am Start-Ort
-  linger: 1600, // ms Pause am Ziel-Ort
+  linger: 1600, // ms Pause an einem Hauptort
+  lingerSub: 1200, // ms Pause an einem Ausflugsziel
   zoomPerLevel: 230, // ms pro Zoomstufe beim Rein- und Rauszoomen
   zoomMin: 900,
   zoomMax: 2600,
@@ -43,11 +48,12 @@ export const SPEEDS = [1, 2, 4];
 export function createPlayer(trip, view, onChange) {
   const legs = trip.legs;
   const state = {
-    legIndex: 0, // aktuelle Etappe
+    legIndex: 0, // aktuelle Etappe (in der Liste ALLER Etappen)
     phase: 'ready', // ready | fly | hold | rise | travel | descend | linger | arrived | done
     time: 0, // ms in der aktuellen Phase
     running: false, // läuft die Zeit gerade?
-    autoContinue: false, // nach der Etappe automatisch weiter?
+    autoContinue: false, // nach dem Abschnitt automatisch weiter?
+    fresh: true, // Etappe neu begonnen (Start/Sprung) → von der Nahansicht aus starten
     speed: 1,
     fly: null, // freie Kamerafahrt: { from, target, duration, topZoom, then, thenTime }
   };
@@ -56,10 +62,65 @@ export function createPlayer(trip, view, onChange) {
 
   const changed = () => onChange && onChange();
   const currentLeg = () => legs[state.legIndex];
+  const isLastOfSegment = (leg) => leg.segment.legs[leg.segment.legs.length - 1] === leg;
+
+  // Wird am Ziel dieser Etappe angehalten und reingezoomt?
+  // (Nach einem Sprung immer am Ende des Abschnitts.)
+  const pausesAtEnd = (leg) => leg.toPause || (!state.autoContinue && isLastOfSegment(leg));
+  // Beginnt diese Etappe in der Nahansicht ihres Startorts?
+  const startsAtCity = (leg) => state.fresh || leg.index === 0 || legs[leg.index - 1].toPause;
+
+  // ---- Kamera-Einstellungen ------------------------------------------
+  // Kamera während der Fahrt bei Fortschritt p: folgt dem Fahrzeug.
+  function travelCamera(leg, p) {
+    const pos = leg.at(p);
+    return {
+      center: [pos.lng, pos.lat],
+      zoom: view.travelZoom(leg) + TRAVEL_ZOOM_IN * (1 - Math.sin(Math.PI * p)),
+      pitch: 0,
+      bearing: 0,
+    };
+  }
+
+  const startCamera = (leg) =>
+    startsAtCity(leg) ? view.cityCamera(leg.from) : travelCamera(legs[leg.index - 1], 1);
+  const endCamera = (leg) => (pausesAtEnd(leg) ? view.cityCamera(leg.to) : travelCamera(leg, 1));
+
+  // Zwei Einstellungen am selben Ort überblenden (nur Zoom und Neigung ändern sich).
+  const blend = (a, b, e) => ({
+    center: a.center,
+    zoom: lerp(a.zoom, b.zoom, e),
+    pitch: lerp(a.pitch, b.pitch, e),
+    bearing: 0,
+  });
+
+  // Wo ist die Kamera in Phase "phase" bei Anteil k (0…1)?
+  function cameraAt(phase, leg, k) {
+    switch (phase) {
+      case 'hold':
+        return startCamera(leg);
+      case 'rise':
+        return blend(startCamera(leg), travelCamera(leg, 0), easeInOutCubic(k));
+      case 'travel':
+        return travelCamera(leg, vehicleProgress('travel', k));
+      case 'descend':
+        return blend(travelCamera(leg, 1), endCamera(leg), easeInOutCubic(k));
+      default: // linger
+        return endCamera(leg);
+    }
+  }
+
+  // Wie weit ist das Fahrzeug? (0 = Start, 1 = Ziel)
+  function vehicleProgress(phase, k) {
+    if (phase === 'travel') return easeInOutSine(k); // sanft anfahren und bremsen
+    return phase === 'descend' || phase === 'linger' ? 1 : 0;
+  }
 
   // ---- Dauer der Phasen --------------------------------------------
-  function zoomDuration(levels) {
-    return clamp(Math.abs(levels) * TIMING.zoomPerLevel, TIMING.zoomMin, TIMING.zoomMax);
+  // Je größer der Zoom-Unterschied, desto länger. Kein Unterschied → 0 ms.
+  function zoomDuration(a, b) {
+    const levels = Math.abs(a.zoom - b.zoom) + Math.abs(a.pitch - b.pitch) / 30;
+    return levels < 0.05 ? 0 : clamp(levels * TIMING.zoomPerLevel, TIMING.zoomMin, TIMING.zoomMax);
   }
 
   function phaseDuration(phase, leg) {
@@ -67,50 +128,16 @@ export function createPlayer(trip, view, onChange) {
       case 'hold':
         return TIMING.hold;
       case 'rise':
-        return zoomDuration(view.cityCamera(leg.from).zoom - view.travelZoom(leg));
+        return zoomDuration(startCamera(leg), travelCamera(leg, 0));
       case 'travel':
         if (leg.empty) return 300;
         return clamp(TIMING.travelBase + leg.km * TIMING.travelPerKm, TIMING.travelMin, TIMING.travelMax);
       case 'descend':
-        return zoomDuration(view.cityCamera(leg.to).zoom - view.travelZoom(leg));
+        return zoomDuration(travelCamera(leg, 1), endCamera(leg));
       default: // linger
-        return TIMING.linger;
+        if (!pausesAtEnd(leg)) return 0;
+        return leg.to.isSub ? TIMING.lingerSub : TIMING.linger;
     }
-  }
-
-  // ---- Wo ist die Kamera in Phase "phase" bei Anteil k (0…1)? ---------
-  function cameraAt(phase, leg, k) {
-    const travelZoom = view.travelZoom(leg);
-    if (phase === 'hold') return view.cityCamera(leg.from);
-    if (phase === 'linger') return view.cityCamera(leg.to);
-
-    if (phase === 'rise' || phase === 'descend') {
-      // Zoomen über dem Ort: rise = raus, descend = rein (rückwärts gerechnet)
-      const city = view.cityCamera(phase === 'rise' ? leg.from : leg.to);
-      const e = easeInOutCubic(phase === 'rise' ? k : 1 - k);
-      return {
-        center: city.center,
-        zoom: lerp(city.zoom, travelZoom + TRAVEL_ZOOM_IN, e),
-        pitch: lerp(city.pitch, 0, e),
-        bearing: 0,
-      };
-    }
-
-    // travel: Kamera folgt dem Fahrzeug
-    const p = vehicleProgress('travel', k);
-    const pos = leg.at(p);
-    return {
-      center: [pos.lng, pos.lat],
-      zoom: travelZoom + TRAVEL_ZOOM_IN * (1 - Math.sin(Math.PI * p)),
-      pitch: 0,
-      bearing: 0,
-    };
-  }
-
-  // Wie weit ist das Fahrzeug? (0 = Start, 1 = Ziel)
-  function vehicleProgress(phase, k) {
-    if (phase === 'travel') return easeInOutSine(k); // sanft anfahren und bremsen
-    return phase === 'descend' || phase === 'linger' ? 1 : 0;
   }
 
   // ---- Freie Kamerafahrt ("fly") --------------------------------------
@@ -175,28 +202,36 @@ export function createPlayer(trip, view, onChange) {
       return state.running;
     }
 
-    const leg = currentLeg();
-    const k = Math.min(1, state.time / phaseDuration(state.phase, leg));
-    const p = vehicleProgress(state.phase, k);
-    view.setCamera(cameraAt(state.phase, leg, k));
-    view.setLegProgress(leg, p);
-    view.setVehicle(leg, p);
-    if (k >= 1) nextPhase();
+    // Phasen mit 0 ms (Durchfahrt) werden im selben Bild übersprungen.
+    for (let guard = 0; guard < 8; guard++) {
+      const leg = currentLeg();
+      const duration = phaseDuration(state.phase, leg);
+      const k = duration > 0 ? Math.min(1, state.time / duration) : 1;
+      const p = vehicleProgress(state.phase, k);
+      view.setCamera(cameraAt(state.phase, leg, k));
+      view.setLegProgress(leg, p);
+      view.setVehicle(leg, p);
+      if (k < 1) break;
+      nextPhase();
+      if (!SEQUENCE.includes(state.phase)) break; // angekommen, fertig oder Kamerafahrt
+    }
     return state.running;
   }
 
   function nextPhase() {
     const i = SEQUENCE.indexOf(state.phase);
+    const leg = currentLeg();
     if (i < SEQUENCE.length - 1) {
       state.phase = SEQUENCE[i + 1];
       state.time = 0;
-    } else if (!state.autoContinue) {
-      state.phase = 'arrived'; // nach einem Sprung: am Ziel stehen bleiben
+    } else if (!state.autoContinue && isLastOfSegment(leg)) {
+      state.phase = 'arrived'; // nach einem Sprung: am Ende des Abschnitts stehen bleiben
       state.running = false;
     } else if (state.legIndex >= legs.length - 1) {
       startFly(() => view.overviewCamera(), 'done'); // Ende: ganze Route zeigen
     } else {
       state.legIndex += 1; // weiter mit der nächsten Etappe
+      state.fresh = false;
       state.phase = 'rise';
       state.time = 0;
       view.setVehicle(currentLeg(), 0);
@@ -204,10 +239,11 @@ export function createPlayer(trip, view, onChange) {
     changed();
   }
 
-  function setAllProgress(fromIndex) {
-    legs.forEach((leg, i) => view.setLegProgress(leg, i < fromIndex ? 1 : 0));
-    state.legIndex = fromIndex;
-    view.setVehicle(legs[fromIndex], 0);
+  function setAllProgress(fromLegIndex) {
+    legs.forEach((leg, i) => view.setLegProgress(leg, i < fromLegIndex ? 1 : 0));
+    state.legIndex = fromLegIndex;
+    state.fresh = true;
+    view.setVehicle(legs[fromLegIndex], 0);
     view.syncRoute();
   }
 
@@ -224,6 +260,7 @@ export function createPlayer(trip, view, onChange) {
     const leg = currentLeg();
 
     if (state.phase === 'ready') {
+      state.fresh = true;
       startFly(() => view.cityCamera(leg.from), 'hold');
     } else if (state.phase === 'arrived') {
       // Nach einem Sprung angekommen → mit der nächsten Etappe weitermachen.
@@ -231,6 +268,7 @@ export function createPlayer(trip, view, onChange) {
         startFly(() => view.overviewCamera(), 'done');
       } else {
         state.legIndex += 1;
+        state.fresh = true; // die Kamera steht ja in der Nahansicht
         view.setVehicle(currentLeg(), 0);
         startFly(() => cameraAt('rise', currentLeg(), 0), 'rise');
       }
@@ -241,7 +279,8 @@ export function createPlayer(trip, view, onChange) {
       // Mitten in einer Phase: Kamera (zurück) an die richtige Stelle holen.
       const phase = state.phase;
       const time = state.time;
-      const k = Math.min(1, time / phaseDuration(phase, leg));
+      const duration = phaseDuration(phase, leg);
+      const k = duration > 0 ? Math.min(1, time / duration) : 1;
       startFly(() => cameraAt(phase, leg, k), phase, time);
     }
     changed();
@@ -255,15 +294,18 @@ export function createPlayer(trip, view, onChange) {
 
   const toggle = () => (state.running ? pause() : play());
 
-  // Zu einer Etappe springen: Alles davor gilt als gereist, dann wird diese
-  // eine Etappe gezeigt. Lief die Reise schon, geht es danach weiter.
-  function jumpTo(index) {
-    if (index < 0 || index >= legs.length) return;
+  // Zu einem Abschnitt springen (Hauptetappe oder Ausflug): Alles davor gilt
+  // als gereist, dann wird dieser Abschnitt gezeigt. Lief die Reise schon,
+  // geht es danach weiter.
+  function jumpTo(segmentIndex) {
+    const segment = trip.segments[segmentIndex];
+    if (!segment) return;
+    const first = segment.legs[0].index;
     const keepPlaying = state.running && state.autoContinue;
-    setAllProgress(index);
+    setAllProgress(first);
     state.running = true;
     state.autoContinue = keepPlaying;
-    startFly(() => view.cityCamera(legs[index].from), 'hold');
+    startFly(() => view.cityCamera(legs[first].from), 'hold');
     changed();
   }
 
@@ -287,18 +329,22 @@ export function createPlayer(trip, view, onChange) {
 
   // Zusammenfassung für die Oberfläche.
   function info() {
-    const completed = legs.filter((leg) => leg.progress >= 1).length;
+    const leg = currentLeg();
+    // Besuchte Orte: der Start plus jedes Ziel einer fertigen Etappe
+    const visitedPlaces = new Set([legs[0].from.place]);
+    legs.forEach((l) => l.progress >= 1 && visitedPlaces.add(l.to.place));
     return {
       legIndex: state.legIndex,
+      leg,
+      segment: leg.segment,
       phase: state.phase,
       // Während einer freien Kamerafahrt zählt die Phase, die danach kommt.
       shownPhase: state.phase === 'fly' ? state.fly.then : state.phase,
       running: state.running,
       speed: state.speed,
-      leg: currentLeg(),
-      completed,
-      reachedStop: completed, // Stopp-Index, bis zu dem man gekommen ist
-      atStart: state.phase === 'ready' && completed === 0 && state.legIndex === 0 && !state.running,
+      pausesHere: pausesAtEnd(leg), // wird am Ziel dieser Etappe angehalten?
+      visitedPlaces,
+      atStart: state.phase === 'ready' && state.legIndex === 0 && progress() === 0 && !state.running,
       progress: progress(),
     };
   }

@@ -6,7 +6,7 @@ Eine Website, die deine Weltreise als Karten-Animation zeigt – von weit weg al
 2. das Fahrzeug **fährt die Route ab**, die Kamera folgt und die Linie wächst mit,
 3. am Ziel **reinzoomen** (leicht geneigt), Ortsname einblenden, kurz verweilen – dann weiter.
 
-Bereits gereiste Etappen bleiben als leuchtende Linie stehen.
+Bereits gereiste Etappen bleiben als leuchtende Linie stehen. **Ausflüge** von einem Ort aus (z. B. mit dem Auto nach Dubai und zurück) laufen als Unterpunkte mit – dabei bleibt die Kamera nah dran im Land.
 
 - Karte per Finger verschieben (ein Finger), zoomen und drehen (zwei Finger)
 - Zwei Kartenstile: **Karte** (Straßenkarte) und **Satellit** – Umschalter unten in der Leiste
@@ -94,7 +94,39 @@ Die Datei enthält einen Titel und eine Liste von Stopps **in Reiserichtung**. Z
 | `notiz` | Beliebiger Text. Einen Zeilenumbruch schreibst du als `\n`. | `"Roller gemietet.\nTraumhaft!"` |
 | `zoom` | **Optional.** Wie nah die Kamera an diesen Ort heranzoomt. Standard ist `10` (Stadt mit Umland). Kleiner = weiter weg (z. B. `8` für eine ganze Insel), größer = näher dran (z. B. `12` für ein Stadtviertel). Feld einfach weglassen, wenn der Standard passt. | `8.5` |
 
+| `unterpunkte` | **Optional.** Ausflüge von diesem Ort aus – siehe unten. | |
+
 **Rundreise:** Der letzte Stopp ist wieder Konstanz. Orte mit gleichem Namen an (fast) derselben Stelle bekommen nur **einen** Marker. Die Infokarte zeigt dann beide Besuche (Start und Rückkehr).
+
+### Ausflüge (Unterpunkte)
+
+Von einem Ort aus einen Abstecher machen und wieder zurückkommen – z. B. von Phnom Penh mit dem Auto nach Sihanoukville, mit dem Boot nach Koh Rong und denselben Weg zurück:
+
+```json
+{
+  "ort": "Phnom Penh",
+  "land": "Kambodscha",
+  "lat": 11.5564,
+  "lng": 104.9282,
+  "verkehrsmittel": "flugzeug",
+  "datum": "2026-04-02",
+  "notiz": "",
+  "unterpunkte": [
+    { "ort": "Sihanoukville", "lat": 10.6093, "lng": 103.5296, "verkehrsmittel": "auto", "notiz": "" },
+    { "ort": "Koh Rong", "lat": 10.7167, "lng": 103.25, "verkehrsmittel": "boot", "notiz": "" }
+  ]
+}
+```
+
+So funktioniert es:
+
+- Die Unterpunkte werden **der Reihe nach** angefahren, danach geht es **automatisch denselben Weg zurück** zum Hauptort (mit denselben Verkehrsmitteln). Den Rückweg schreibst du also nicht extra hin.
+- `verkehrsmittel` bei einem Unterpunkt = womit du **dorthin** kommst. Lässt du es weg, gilt `"auto"`.
+- **Datum nur beim Hauptort:** Das Datum von Phnom Penh gilt für den ganzen Aufenthalt im Land. Unterpunkte brauchen kein Datum.
+- Bei Ausflügen bleibt die Kamera in der Region (z. B. ganz Kambodscha im Bild) statt bis zum Globus rauszuzoomen. An jedem Ausflugsziel wird kurz reingezoomt, auf dem Rückweg fährt das Fahrzeug ohne Halt durch.
+- In der Leiste unten erscheint jeder Ausflug als eigener, eingerückter Eintrag „↳ Ausflug“ direkt nach der Etappe zum Hauptort. Antippen spielt den ganzen Ausflug ab.
+- Auf dem Globus (weit rausgezoomt) sind Ausflugsziele ausgeblendet, damit sie nicht über dem Hauptort liegen. Beim Reinzoomen erscheinen sie als kleinere Punkte.
+- Hat der Ort keine Ausflüge, das Feld `unterpunkte` einfach weglassen.
 
 ### Häufige Änderungen
 
@@ -148,7 +180,7 @@ Die Website zeigt bei Fehlern in `route.json` eine Meldung mit Hinweis auf die Z
 | Reise abspielen / pausieren | großer runder Button unten links |
 | Karte bewegen / zoomen | ein Finger ziehen / zwei Finger auseinander. Während die Reise läuft, pausiert sie dabei automatisch; Play holt die Kamera zurück. |
 | Kartenstil wechseln | Button mit den gestapelten Ebenen (Karte ↔ Satellit). Die Wahl wird gemerkt. |
-| Zu einer Etappe springen | Etappe in der Leiste unten antippen (Leiste ist seitlich wischbar) |
+| Zu einer Etappe springen | Etappe in der Leiste unten antippen (Leiste ist seitlich wischbar). Eingerückte Einträge „↳ Ausflug“ spielen einen ganzen Ausflug ab. |
 | Infos zu einem Ort | Marker antippen; Schließen mit × oder Tippen auf die Karte |
 | Tempo | Button `1×` → `2×` → `4×` |
 | Von vorne | Button mit dem Kreispfeil |
@@ -165,7 +197,7 @@ route.json         deine Reisedaten
 assets/            App-Symbol
 js/
   app.js           Startpunkt: lädt MapLibre vom CDN, liest die Route, verbindet die Teile
-  route.js         liest und prüft route.json, berechnet die Etappen
+  route.js         liest und prüft route.json, berechnet Etappen und Ausflüge
   geo.js           Mathe auf der Kugel: Entfernung, Großkreis, Bogen, Mercator
   transport.js     Verkehrsmittel: Namen, Farben, Symbole
   map.js           alles Sichtbare: Karte, Linien, Marker, Fahrzeug, Kamera-Hilfen
@@ -186,9 +218,9 @@ route.json ──► route.js ──► trip  (Stopps, Etappen, Orte)
                       passiert)                 „Play“, „Etappe 3“ …)
 ```
 
-- **Daten getrennt vom Code:** `route.js` macht aus `route.json` ein Objekt `trip`. Jede Etappe bekommt dabei schon ihre fertige Linie (Liste von Punkten `[Länge, Breite]`).
+- **Daten getrennt vom Code:** `route.js` macht aus `route.json` ein Objekt `trip`. Jede Etappe bekommt dabei schon ihre fertige Linie (Liste von Punkten `[Länge, Breite]`). Ausflüge werden dabei zu ganz normalen Etappen (hin und zurück) – sie bekommen nur zwei Extras: eine gemeinsame „Region“ für den Kartenausschnitt und auf dem Rückweg `toPause: false` (nicht anhalten). Für die Leiste fasst `route.js` die Etappen zu Abschnitten (`segments`) zusammen: eine Hauptetappe oder ein ganzer Ausflug.
 - **Zeichnen getrennt vom Ablauf:** `map.js` weiß nicht, ob die Reise läuft. Es bietet nur Befehle wie „Kamera hierhin“, „Fahrzeug bei 40 % von Etappe 3“, „Nahansicht von Bali“.
-- **Der Ablauf als Zustandsmaschine:** `player.js` kennt für jede Etappe die Phasen `hold → rise → travel → descend → linger` (am Start verweilen → rauszoomen → fahren → am Ziel reinzoomen → verweilen). Für jede Phase gibt es eine Formel, wo die Kamera bei 0 %, 50 % oder 100 % der Phase steht. Die Buttons in `ui.js` rufen nur `play()`, `pause()` oder `jumpTo(3)` auf.
+- **Der Ablauf als Zustandsmaschine:** `player.js` kennt für jede Etappe die Phasen `hold → rise → travel → descend → linger` (am Start verweilen → rauszoomen → fahren → am Ziel reinzoomen → verweilen). Für jede Phase gibt es eine Formel, wo die Kamera bei 0 %, 50 % oder 100 % der Phase steht. Wird an einem Ort nicht angehalten (Rückweg eines Ausflugs), dauern `descend`, `linger` und `rise` einfach 0 ms. Die Buttons in `ui.js` rufen nur `play()`, `pause()` oder `jumpTo(3)` auf.
 
 ### Was bei jedem Bild passiert (ca. 60-mal pro Sekunde)
 

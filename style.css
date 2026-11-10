@@ -120,6 +120,29 @@ button {
   transform: scale(1.35);
 }
 
+/* Ausflugsziele: kleinere Marker, erst beim Reinzoomen sichtbar */
+.marker.is-sub {
+  width: 24px;
+  height: 24px;
+}
+
+.marker.is-sub .marker-dot {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-width: 1.5px;
+}
+
+.marker.is-sub .marker-label {
+  padding: 2px 7px 3px;
+  font-size: 11px;
+  background: rgba(8, 11, 26, 0.62);
+}
+
+.hide-sub-markers .marker.is-sub {
+  visibility: hidden;
+}
+
 /* Pulsierender Ring am Ziel der aktuellen Etappe */
 .marker.is-target .marker-dot::after {
   content: "";
@@ -486,6 +509,53 @@ button {
 .leg-icon svg {
   width: 14px;
   height: 14px;
+}
+
+/* Ausflug: eingerückt und etwas kleiner – ein Unterpunkt der Etappe davor */
+.leg.is-excursion {
+  min-width: 0;
+  margin-left: -2px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.leg.is-excursion .leg-num {
+  width: 20px;
+  height: 20px;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.leg-kicker {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.leg.is-excursion .leg-route {
+  font-size: 12.5px;
+}
+
+.leg.is-excursion.is-done .leg-num {
+  background: none;
+  color: var(--leg-color);
+}
+
+.inline-icon {
+  display: inline-grid;
+  vertical-align: -2px;
+  margin-right: 3px;
+  color: var(--leg-color);
+}
+
+.inline-icon svg {
+  width: 15px;
+  height: 15px;
 }
 
 .leg.is-done .leg-num {
