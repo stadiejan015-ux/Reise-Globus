@@ -1,0 +1,95 @@
+{
+  "titel": "Meine Weltreise",
+  "stopps": [
+    {
+      "ort": "Konstanz",
+      "land": "Deutschland",
+      "lat": 47.6603,
+      "lng": 9.1758,
+      "verkehrsmittel": "",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Abu Dhabi",
+      "land": "Vereinigte Arabische Emirate",
+      "lat": 24.4539,
+      "lng": 54.3773,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Bali",
+      "land": "Indonesien",
+      "lat": -8.6500,
+      "lng": 115.2167,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Singapur",
+      "land": "Singapur",
+      "lat": 1.3521,
+      "lng": 103.8198,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Phnom Penh",
+      "land": "Kambodscha",
+      "lat": 11.5564,
+      "lng": 104.9282,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Kuala Lumpur",
+      "land": "Malaysia",
+      "lat": 3.1390,
+      "lng": 101.6869,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Phuket",
+      "land": "Thailand",
+      "lat": 7.8804,
+      "lng": 98.3923,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Sydney",
+      "land": "Australien",
+      "lat": -33.8688,
+      "lng": 151.2093,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Shanghai",
+      "land": "China",
+      "lat": 31.2304,
+      "lng": 121.4737,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    },
+    {
+      "ort": "Konstanz",
+      "land": "Deutschland",
+      "lat": 47.6603,
+      "lng": 9.1758,
+      "verkehrsmittel": "flugzeug",
+      "datum": "",
+      "notiz": ""
+    }
+  ]
+}
