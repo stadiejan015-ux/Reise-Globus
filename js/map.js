@@ -242,9 +242,9 @@ export function createMapView(maplibregl, container, trip, callbacks) {
   // ---------------------------------------------------------------
   // 3) Marker mit Stadtnamen
   // ---------------------------------------------------------------
-  trip.places.forEach((place) => {
+  trip.places.forEach((place, order) => {
     const el = document.createElement('div');
-    el.className = 'marker';
+    el.className = place.isSub ? 'marker is-sub' : 'marker'; // Ausflugsziele: kleiner
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label', place.name);
     el.innerHTML = '<span class="marker-dot"></span><span class="marker-label"></span>';
@@ -253,6 +253,7 @@ export function createMapView(maplibregl, container, trip, callbacks) {
     place.el = el;
     place.labelEl = el.querySelector('.marker-label');
     place.side = ''; // wird von layoutLabels() gesetzt
+    place.order = order;
     place.priority = 0;
     // Marker auf der Rückseite des Globus werden ausgeblendet ("covered").
     place.marker = new maplibregl.Marker({ element: el, anchor: 'center', opacityWhenCovered: '0' })
@@ -261,19 +262,30 @@ export function createMapView(maplibregl, container, trip, callbacks) {
   });
 
   // Zustand der Marker setzen (besucht, aktiv, ausgewählt).
-  function refreshMarkers({ reachedStop, activePlaces = [], targetPlace = null, selectedPlace = null }) {
+  function refreshMarkers({ visitedPlaces, activePlaces = [], targetPlace = null, selectedPlace = null }) {
     trip.places.forEach((place) => {
-      const visited = place.stops.some((s) => s.index <= reachedStop);
       const active = activePlaces.includes(place);
       const selected = place === selectedPlace;
-      place.el.classList.toggle('is-visited', visited);
+      place.el.classList.toggle('is-visited', visitedPlaces.has(place));
       place.el.classList.toggle('is-active', active);
       place.el.classList.toggle('is-target', place === targetPlace);
       place.el.classList.toggle('is-selected', selected);
       // Wer zuerst einen Platz für seine Beschriftung bekommt:
-      place.priority = (selected ? 1000 : 0) + (active ? 500 : 0) - place.stops[0].index;
+      place.priority =
+        (selected ? 1000 : 0) + (active ? 500 : 0) - (place.isSub ? 100 : 0) - place.order;
     });
     requestLabelLayout();
+  }
+
+  // Ausflugsziele erst zeigen, wenn man nah genug dran ist – sonst würden
+  // z. B. Dubai und Abu Dhabi auf dem Globus übereinander liegen.
+  const SUB_MARKER_MIN_ZOOM = 5;
+  let subsHidden = null;
+  function updateSubMarkerVisibility() {
+    const hide = map.getZoom() < SUB_MARKER_MIN_ZOOM;
+    if (hide === subsHidden) return;
+    subsHidden = hide;
+    container.classList.toggle('hide-sub-markers', hide);
   }
 
   // Beschriftungen so platzieren, dass sie sich nicht überlappen.
@@ -285,9 +297,10 @@ export function createMapView(maplibregl, container, trip, callbacks) {
     const taken = []; // bereits belegte Rechtecke auf dem Bildschirm
     const items = [];
 
+    updateSubMarkerVisibility();
     for (const place of trip.places) {
       const covered = place.el.classList.contains('maplibregl-marker-covered');
-      if (covered) {
+      if (covered || (place.isSub && subsHidden)) {
         setSide(place, 'none');
         continue;
       }
@@ -414,11 +427,14 @@ export function createMapView(maplibregl, container, trip, callbacks) {
     return Math.log2((0.9 * Math.max(120, Math.min(freeWidth, freeHeight))) / (512 / Math.PI));
   }
 
-  // Zoomstufe, in der eine ganze Etappe zu sehen ist – aber nie weiter weg,
-  // als dass der Globus die freie Fläche ausfüllt.
+  // Zoomstufe für die Fahrt: Die ganze Etappe soll zu sehen sein – aber nie
+  // weiter weg, als dass der Globus die freie Fläche ausfüllt. Bei Ausflügen
+  // zählt die ganze Ausflugs-Region, damit die Kamera "im Land" bleibt.
   function travelZoom(leg) {
-    const closest = Math.min(cityZoom(leg.from), cityZoom(leg.to)) - 1.5;
-    const zoom = Math.max(zoomToFit(leg.extent), globeZoom());
+    const extent = leg.region || leg.extent;
+    const margin = leg.isExcursion ? 1 : 1.5; // mindestens so weit raus wie die Nahansicht
+    const closest = Math.min(cityZoom(leg.from), cityZoom(leg.to)) - margin;
+    const zoom = Math.max(zoomToFit(extent), globeZoom());
     return clamp(zoom, CAMERA.minZoom, Math.max(CAMERA.minZoom, closest));
   }
 

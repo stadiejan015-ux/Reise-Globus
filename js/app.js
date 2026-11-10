@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------
 //   route.js   → liest route.json und berechnet die Etappen
 //   map.js     → zeichnet Karte, Linien, Marker und Fahrzeug
-//   player.js  → steuert die Animation (Play, Pause, Springen …)
+//   player.js  → steuert die Animation (Play, Pause, Springen, Ausflüge …)
 //   ui.js      → Buttons, Etappenleiste, Infokarte
 //   stars.js   → Sternenhimmel um den Globus
 // =====================================================================
@@ -41,7 +41,7 @@ async function start() {
     onRestart: () => player.reset(),
     onSpeed: () => player.cycleSpeed(),
     onStyle: () => switchStyle(),
-    onLeg: (index) => player.jumpTo(index),
+    onSegment: (index) => player.jumpTo(index),
     onCloseCard: () => selectPlace(null),
   });
 
@@ -103,7 +103,7 @@ async function start() {
     else if (traveling) activePlaces = [leg.from.place, leg.to.place];
 
     view.refreshMarkers({
-      reachedStop: info.reachedStop,
+      visitedPlaces: info.visitedPlaces,
       activePlaces,
       targetPlace: traveling ? leg.to.place : null,
       selectedPlace,
@@ -142,9 +142,9 @@ async function start() {
       e.preventDefault();
       player.toggle();
     } else if (e.key === 'ArrowRight') {
-      player.jumpTo(Math.min(trip.legs.length - 1, info.atStart ? 0 : info.legIndex + 1));
+      player.jumpTo(Math.min(trip.segments.length - 1, info.atStart ? 0 : info.segment.index + 1));
     } else if (e.key === 'ArrowLeft') {
-      player.jumpTo(Math.max(0, info.legIndex - 1));
+      player.jumpTo(Math.max(0, info.segment.index - 1));
     } else if (e.key === 'Escape') {
       selectPlace(null);
     }
