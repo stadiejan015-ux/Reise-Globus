@@ -64,7 +64,7 @@ button {
 /* ---------- Ebenen ---------- */
 
 #stars,
-#globe {
+#map {
   position: fixed;
   top: 0;
   left: 0;
@@ -72,23 +72,28 @@ button {
   height: 100%;
 }
 
-#globe {
-  touch-action: none; /* alle Gesten gehen an den Globus */
+#map {
+  background: transparent; /* außerhalb des Globus sieht man die Sterne */
+  touch-action: none; /* alle Gesten gehen an die Karte */
 }
 
-/* ---------- Marker auf dem Globus ---------- */
+/* Hinweis auf die Kartendaten (Pflicht): klein oben rechts */
+.maplibregl-ctrl-top-right {
+  top: var(--safe-top);
+  right: var(--safe-right);
+}
+
+/* ---------- Marker auf der Karte ---------- */
+/* MapLibre positioniert .marker selbst (position: absolute + transform). */
 
 .marker {
-  position: relative;
   width: 30px;
   height: 30px;
-  pointer-events: auto;
   cursor: pointer;
-  transition: opacity 0.25s;
 }
 
-.marker.is-behind {
-  opacity: 0;
+/* Auf der Rückseite des Globus: unsichtbar und nicht antippbar */
+.maplibregl-marker-covered {
   pointer-events: none;
 }
 
@@ -154,7 +159,7 @@ button {
   background: rgba(40, 24, 6, 0.82);
 }
 
-/* Wo die Beschriftung sitzt, entscheidet globe.js (data-side) */
+/* Wo die Beschriftung sitzt, entscheidet map.js (data-side) */
 .marker-label,
 .marker[data-side="right"] .marker-label {
   left: calc(50% + 11px);
@@ -187,23 +192,25 @@ button {
 /* ---------- Fahrzeug ---------- */
 
 .vehicle {
-  position: fixed;
-  left: -19px;
-  top: -19px;
-  width: 38px;
-  height: 38px;
-  z-index: 5;
+  width: 40px;
+  height: 40px;
   pointer-events: none;
-  color: #ffffff;
-  will-change: transform;
-  filter: drop-shadow(0 0 5px var(--vehicle-glow, #f0821c)) drop-shadow(0 3px 4px rgba(0, 0, 0, 0.55));
-  transition: opacity 0.3s;
+  color: var(--vehicle-color, #f5871f);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
 }
 
 .vehicle svg {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* Weißer Rand ums Fahrzeug: gut sichtbar auf heller und dunkler Karte */
+.vehicle .v-body {
+  stroke: #ffffff;
+  stroke-width: 1.4px;
+  stroke-linejoin: round;
+  paint-order: stroke;
 }
 
 .vehicle.is-hidden {
@@ -215,16 +222,22 @@ button {
 .hud {
   position: fixed;
   z-index: 10;
-  top: calc(14px + var(--safe-top));
-  left: calc(18px + var(--safe-left));
-  right: calc(18px + var(--safe-right));
+  top: calc(12px + var(--safe-top));
+  left: calc(12px + var(--safe-left));
+  max-width: calc(100vw - 80px);
+  padding: 9px 14px 10px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
   pointer-events: none;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85);
 }
 
 .hud h1 {
   margin: 0;
-  font-size: clamp(21px, 3vw, 30px);
+  font-size: clamp(18px, 2.6vw, 26px);
   font-weight: 750;
   letter-spacing: -0.015em;
 }
@@ -234,6 +247,51 @@ button {
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
+}
+
+/* ---------- Orts-Banner (wie im Reisevideo) ---------- */
+
+.banner {
+  position: fixed;
+  z-index: 9;
+  left: 50%;
+  top: var(--banner-top, 96px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 22px 11px;
+  border-radius: 18px;
+  background: rgba(10, 14, 30, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition: opacity 0.35s, transform 0.35s;
+}
+
+.banner.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.banner-title {
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.banner-sub {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.banner-sub:empty {
+  display: none;
 }
 
 /* ---------- Leiste unten ---------- */
@@ -596,7 +654,7 @@ button {
 .toasts {
   position: fixed;
   z-index: 40;
-  top: calc(70px + var(--safe-top));
+  bottom: calc(var(--panel-space) + 14px);
   left: 50%;
   transform: translateX(-50%);
   width: min(460px, calc(100vw - 24px));
@@ -705,12 +763,23 @@ button {
     padding: 10px 8px 8px;
     border-radius: 20px;
   }
+  .controls {
+    gap: 7px;
+  }
   .btn-play {
     width: 48px;
     height: 48px;
   }
+  .btn-small {
+    width: 36px;
+    height: 36px;
+  }
+  .btn-small svg {
+    width: 18px;
+    height: 18px;
+  }
   .status-main {
-    font-size: 15px;
+    font-size: 14.5px;
   }
   .leg {
     min-width: 150px;
@@ -761,9 +830,16 @@ button {
     min-width: 140px;
     padding: 6px 10px 6px 6px;
   }
-  .toasts {
-    top: calc(40px + var(--safe-top));
+  .banner {
+    padding: 6px 16px 7px;
   }
+  .banner-title {
+    font-size: 19px;
+  }
+  .banner-sub {
+    font-size: 12px;
+  }
+
 }
 
 /* Weniger Bewegung, wenn im System so eingestellt */

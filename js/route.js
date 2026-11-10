@@ -12,11 +12,12 @@
 
 import {
   angleBetween,
-  buildArcPoints,
+  buildRoutePoints,
   clamp,
-  createPathSampler,
+  createRouteSampler,
   DEG,
   distanceKm,
+  toMercator,
 } from './geo.js';
 import { TRANSPORT, resolveTransportKey } from './transport.js';
 
@@ -126,12 +127,23 @@ export function buildTrip(data) {
       transport = 'flugzeug';
     }
 
+    // Optional: eigene Zoomstufe für die Nahansicht (z. B. 8 = weiter weg, 12 = näher dran)
+    let zoom = null;
+    if (raw.zoom !== undefined && raw.zoom !== '') {
+      zoom = Number(raw.zoom);
+      if (!Number.isFinite(zoom) || zoom < 2 || zoom > 16) {
+        warnings.push(`${label} (${name}): "zoom" sollte eine Zahl zwischen 2 und 16 sein – ich nehme den Standard.`);
+        zoom = null;
+      }
+    }
+
     return {
       index,
       name,
       country: String(raw.land || '').trim(),
       lat,
       lng,
+      zoom,
       transport, // womit man HIERHER reist (beim ersten Stopp egal)
       date: String(raw.datum || '').trim(),
       note: String(raw.notiz || '').trim(),
@@ -151,11 +163,11 @@ export function buildTrip(data) {
       warnings.push(`Stopp ${i} und ${i + 1} liegen am selben Ort – diese Etappe wird übersprungen.`);
     }
 
-    // Wie hoch wölbt sich der Bogen? Lange Flüge höher, kurze flacher.
-    const peak = transport.arc ? clamp(angle * 0.22, 0.02, 0.4) : 0;
+    // Flüge biegen sich als Bogen aus, Auto und Boot fahren gerade.
     // Ein Punkt pro halbem Grad sorgt für eine glatte Kurve.
-    const segments = Math.round(clamp((angle / DEG) * 2, 24, 360));
-    const points = buildArcPoints(from, to, peak, segments);
+    const segments = Math.round(clamp((angle / DEG) * 2, 32, 360));
+    const points = buildRoutePoints(from, to, transport.bow, segments);
+    const merc = points.map(toMercator);
 
     legs.push({
       index: i - 1,
@@ -166,8 +178,15 @@ export function buildTrip(data) {
       angle,
       km,
       empty: km < 1,
-      points,
-      at: createPathSampler(points), // at(0…1) → Position entlang der Linie
+      points, // [[lng, lat], …] für die Karte
+      at: createRouteSampler(points), // at(0…1) → Position + Fahrtrichtung
+      // Ausdehnung in Mercator-Koordinaten (0…1), um die Zoomstufe zu berechnen
+      extent: {
+        minX: Math.min(...merc.map((m) => m[0])),
+        maxX: Math.max(...merc.map((m) => m[0])),
+        minY: Math.min(...merc.map((m) => m[1])),
+        maxY: Math.max(...merc.map((m) => m[1])),
+      },
       progress: 0, // 0 = noch nicht gereist, 1 = fertig
     });
   }

@@ -3,11 +3,10 @@
 // ---------------------------------------------------------------------
 // Jedes Verkehrsmittel hat:
 //   name     – Anzeigename
-//   color    – Akzentfarbe (Etappenleiste, Infokarte)
-//   glow     – Farbe des breiten "Leucht-Saums" der gereisten Linie
-//   core     – Farbe des hellen Kerns der Linie
-//   arc      – true: Bogen hoch über dem Globus (Flug)
-//              false: flach an der Oberfläche (Auto, Boot)
+//   color    – Farbe der Linie und Akzentfarbe in Leiste und Infokarte
+//   glow     – Farbe des weichen Leucht-Saums um die Linie
+//   bow      – wie stark die Linie seitlich ausbiegt (Flug: geschwungener
+//              Bogen wie auf Flugkarten; 0 = gerade Linie)
 //   vehicle  – SVG von oben gesehen, Spitze zeigt nach oben. Es wird
 //              automatisch in Fahrtrichtung gedreht.
 //   icon     – kleines Symbol für Leiste und Karte
@@ -27,19 +26,20 @@ const PLANE_PATH =
   'c0-.2.1-.4.3-.5l2.1-1.6v-4.9l-7.6 2.3c-.4.1-.8-.2-.8-.6v-1.4c0-.4.2-.7.5-.9l7.9-4.7' +
   'V3.7c0-1.2.7-2.1 1.6-2.1z';
 
-const VEHICLE_PLANE = svg(`<path fill="currentColor" d="${PLANE_PATH}"/>`);
+// class="v-body" bekommt per CSS einen weißen Rand – gut sichtbar auf jeder Karte.
+const VEHICLE_PLANE = svg(`<path class="v-body" fill="currentColor" d="${PLANE_PATH}"/>`);
 
 const VEHICLE_CAR = svg(`
   <rect x="5.6" y="8.4" width="1.6" height="1.3" rx=".6" fill="currentColor"/>
   <rect x="16.8" y="8.4" width="1.6" height="1.3" rx=".6" fill="currentColor"/>
-  <rect x="7" y="2" width="10" height="20" rx="4" fill="currentColor"/>
+  <rect class="v-body" x="7" y="2" width="10" height="20" rx="4" fill="currentColor"/>
   <path d="M8.3 8.8Q12 7.3 15.7 8.8L14.8 11.4Q12 10.6 9.2 11.4Z" fill="#0b1020" opacity=".75"/>
   <path d="M9.2 16.6Q12 17.3 14.8 16.6L15.4 18.8Q12 19.9 8.6 18.8Z" fill="#0b1020" opacity=".75"/>
   <rect x="8.2" y="2.7" width="2.1" height="1.1" rx=".5" fill="#fff4c2"/>
   <rect x="13.7" y="2.7" width="2.1" height="1.1" rx=".5" fill="#fff4c2"/>`);
 
 const VEHICLE_BOAT = svg(`
-  <path d="M12 1.5C15 4 17 8 17 12.5V20a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-7.5C7 8 9 4 12 1.5Z" fill="currentColor"/>
+  <path class="v-body" d="M12 1.5C15 4 17 8 17 12.5V20a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-7.5C7 8 9 4 12 1.5Z" fill="currentColor"/>
   <rect x="9.3" y="11" width="5.4" height="6.6" rx="1.2" fill="#0b1020" opacity=".7"/>
   <path d="M12 4.6V9" stroke="#0b1020" stroke-opacity=".5" stroke-width="1.1" stroke-linecap="round"/>`);
 
@@ -56,28 +56,25 @@ const ICON_BOAT = svg(`<path fill="currentColor" d="M11 2.5a1 1 0 0 1 2 0V4h3a1.
 export const TRANSPORT = {
   flugzeug: {
     name: 'Flugzeug',
-    color: '#ffb347',
-    glow: '#f0821c',
-    core: '#fff3d6',
-    arc: true,
+    color: '#f5871f',
+    glow: '#ffb35c',
+    bow: 0.12,
     vehicle: VEHICLE_PLANE,
     icon: ICON_PLANE,
   },
   auto: {
     name: 'Auto',
-    color: '#6fdc8c',
-    glow: '#25a552',
-    core: '#e8ffee',
-    arc: false,
+    color: '#22a95b',
+    glow: '#6fdc8c',
+    bow: 0,
     vehicle: VEHICLE_CAR,
     icon: ICON_CAR,
   },
   boot: {
     name: 'Boot',
-    color: '#5ac8fa',
-    glow: '#1b86d1',
-    core: '#e4f6ff',
-    arc: false,
+    color: '#1f8fe0',
+    glow: '#6cc6ff',
+    bow: 0,
     vehicle: VEHICLE_BOAT,
     icon: ICON_BOAT,
   },
@@ -114,5 +111,6 @@ export const UI_ICONS = {
   close: svg(`<path ${stroke} d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>`),
   calendar: svg(`<rect ${stroke} x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path ${stroke} d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>`),
   note: svg(`<path ${stroke} d="M6 3.8h8.5L18 7.3v12.9H6z"/><path ${stroke} d="M9 11h6M9 14.5h6M9 18h3.5"/>`),
+  layers: svg(`<path ${stroke} d="M12 3.5 21 8l-9 4.5L3 8z"/><path ${stroke} d="m3 12 9 4.5 9-4.5M3 16l9 4.5 9-4.5"/>`),
   pin: svg(`<path ${stroke} d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle ${stroke} cx="12" cy="10" r="2.3"/>`),
 };

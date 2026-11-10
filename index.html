@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#03040c">
-  <meta name="description" content="Meine Weltreise – animiert auf einem 3D-Globus">
+  <meta name="description" content="Meine Weltreise – animiert auf Globus und Karte">
   <!-- Auf dem Home-Bildschirm wie eine App öffnen (Teilen → Zum Home-Bildschirm) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -13,23 +13,24 @@
   <title>Meine Weltreise</title>
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <!-- Grund-Styles der Kartenbibliothek MapLibre GL (feste Version) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.15.0/dist/maplibre-gl.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Ebene 1: Sternenhimmel -->
   <canvas id="stars" aria-hidden="true"></canvas>
 
-  <!-- Ebene 2: der 3D-Globus (globe.gl baut hier sein <canvas> ein) -->
-  <div id="globe"></div>
+  <!-- Ebene 2: die Karte (MapLibre baut hier Karte, Marker und Fahrzeug ein) -->
+  <div id="map"></div>
 
-  <!-- Ebene 3: das Fahrzeug, das die Route abfliegt -->
-  <div id="vehicle" class="vehicle is-hidden" aria-hidden="true"></div>
-
-  <!-- Ebene 4: Bedienoberfläche -->
+  <!-- Ebene 3: Bedienoberfläche -->
   <header id="hud" class="hud">
     <h1 id="trip-title">Meine Weltreise</h1>
     <p id="trip-summary"></p>
   </header>
+
+  <div id="banner" class="banner" aria-live="polite"></div>
 
   <article id="card" class="card" hidden aria-live="polite"></article>
 
@@ -42,6 +43,7 @@
         <span id="status-main" class="status-main"></span>
       </div>
       <button id="btn-speed" type="button" class="btn btn-small" aria-label="Tempo ändern">1×</button>
+      <button id="btn-style" type="button" class="btn btn-small" aria-label="Kartenstil wechseln"></button>
       <button id="btn-restart" type="button" class="btn btn-small" aria-label="Von vorne"></button>
     </div>
     <nav id="legs" class="legs" aria-label="Etappen"></nav>
@@ -51,13 +53,12 @@
 
   <div id="loading" class="loading">
     <div class="spinner"></div>
-    <p>Globus wird geladen …</p>
+    <p>Karte wird geladen …</p>
   </div>
   <div id="error" class="error" hidden></div>
 
-  <!-- Globus-Bibliothek globe.gl (enthält three.js) vom CDN, feste Version -->
-  <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"></script>
-  <!-- Unser eigener Code (ES-Module, kein Build-Schritt nötig) -->
+  <!-- Unser eigener Code (ES-Module, kein Build-Schritt nötig).
+       MapLibre GL wird von js/app.js nachgeladen. -->
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

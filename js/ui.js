@@ -1,8 +1,9 @@
 // =====================================================================
-// ui.js – die Bedienoberfläche (normales HTML, kein 3D)
+// ui.js – die Bedienoberfläche (normales HTML über der Karte)
 // ---------------------------------------------------------------------
 //  • Titel oben links
-//  • Leiste unten: Play/Pause, Neustart, Tempo, Status, Etappen-Chips
+//  • Orts-Banner oben in der Mitte ("Bali · Indonesien"), wie im Reisevideo
+//  • Leiste unten: Play/Pause, Status, Tempo, Kartenstil, Neustart, Etappen
 //  • Infokarte, wenn man einen Marker antippt
 //  • kleine Hinweis-Meldungen ("Toasts")
 // =====================================================================
@@ -23,6 +24,8 @@ export function createUI(trip, handlers) {
     play: $('#btn-play'),
     restart: $('#btn-restart'),
     speed: $('#btn-speed'),
+    style: $('#btn-style'),
+    banner: $('#banner'),
     statusTop: $('#status-top'),
     statusMain: $('#status-main'),
     progress: $('#progress-bar'),
@@ -43,9 +46,11 @@ export function createUI(trip, handlers) {
 
   // ---- Buttons --------------------------------------------------------
   els.restart.innerHTML = UI_ICONS.restart;
+  els.style.innerHTML = UI_ICONS.layers;
   els.play.addEventListener('click', handlers.onPlay);
   els.restart.addEventListener('click', handlers.onRestart);
   els.speed.addEventListener('click', handlers.onSpeed);
+  els.style.addEventListener('click', handlers.onStyle);
 
   // ---- Etappen-Chips ---------------------------------------------------
   const chips = trip.legs.map((leg) => {
@@ -139,20 +144,24 @@ export function createUI(trip, handlers) {
     els.speed.textContent = `${speed}×`;
 
     // Statuszeilen
-    const atStart = info.atStart; // noch nichts gereist, nichts läuft
+    const { atStart, shownPhase } = info;
     const step = `Etappe ${legIndex + 1}/${total}`;
-    let top = `${step} · ${leg.transport.name}`;
+    let top = step;
     let main = `${leg.from.name} → ${leg.to.name}`;
     if (atStart) {
       top = 'Bereit';
       main = 'Tippe auf Play';
-    } else if (phase === 'finale' || phase === 'done') {
+    } else if (shownPhase === 'done') {
       top = 'Reise abgeschlossen';
       main = trip.isRoundTrip ? `Wieder in ${leg.to.name}` : `Angekommen in ${leg.to.name}`;
-    } else if (phase === 'arrival' || phase === 'arrived') {
+    } else if (shownPhase === 'hold') {
+      top = `${step} · Start`;
+      main = leg.from.name;
+    } else if (['descend', 'linger', 'arrived'].includes(shownPhase)) {
       top = `${step} · Ankunft`;
       main = leg.to.name;
-    } else if (!running) {
+    }
+    if (!running && !atStart && phase !== 'done' && phase !== 'arrived') {
       top = `Pausiert · ${step}`;
     }
     els.statusTop.textContent = top;
@@ -161,12 +170,39 @@ export function createUI(trip, handlers) {
     // Chips
     chips.forEach((chip, i) => {
       chip.classList.toggle('is-done', trip.legs[i].progress >= 1);
-      chip.classList.toggle('is-active', i === legIndex && !atStart && phase !== 'done');
+      chip.classList.toggle('is-active', i === legIndex && !atStart && shownPhase !== 'done');
     });
+    // Orts-Banner: beim Start den Startort, bei der Ankunft das Ziel zeigen
+    if (phase === 'hold') showBanner(leg.from);
+    else if (['descend', 'linger', 'arrived'].includes(phase)) showBanner(leg.to);
+    else showBanner(null);
+
     if (legIndex !== lastActive) {
       lastActive = legIndex;
       scrollChipIntoView(chips[legIndex]);
     }
+  }
+
+  let bannerStop = null;
+  function showBanner(stop) {
+    if (stop === bannerStop) return;
+    bannerStop = stop;
+    if (!stop) {
+      els.banner.classList.remove('is-visible');
+      return;
+    }
+    const date = formatDate(stop.date, longDate);
+    els.banner.innerHTML = '<span class="banner-title"></span><span class="banner-sub"></span>';
+    els.banner.querySelector('.banner-title').textContent = stop.name;
+    els.banner.querySelector('.banner-sub').textContent = [stop.country, date].filter(Boolean).join(' · ');
+    els.banner.classList.remove('is-visible');
+    void els.banner.offsetWidth; // Einblend-Animation neu starten
+    els.banner.classList.add('is-visible');
+  }
+
+  function setStyleName(name) {
+    els.style.setAttribute('aria-label', `Kartenstil wechseln (gerade: ${name})`);
+    els.style.title = `Kartenstil: ${name}`;
   }
 
   function scrollChipIntoView(chip) {
@@ -192,7 +228,7 @@ export function createUI(trip, handlers) {
     setTimeout(() => el.remove(), ms);
   }
 
-  // Wie viel Platz belegen Titel und Leiste? (für die Globus-Mitte)
+  // Wie viel Platz belegen Titel und Leiste? (damit die Kartenmitte im freien Bereich liegt)
   function insets() {
     const panelRect = els.panel.getBoundingClientRect();
     const hudRect = els.hud.getBoundingClientRect();
@@ -202,7 +238,7 @@ export function createUI(trip, handlers) {
     };
   }
 
-  return { render, setProgress, openCard, closeCard, toast, insets };
+  return { render, setProgress, openCard, closeCard, toast, insets, setStyleName };
 }
 
 // ---------------------------------------------------------------------
