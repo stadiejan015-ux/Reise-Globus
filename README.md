@@ -1,8 +1,15 @@
 # Reise-Globus
 
-Eine Website, die deine Weltreise auf einem drehbaren 3D-Globus zeigt. Auf **Play** fliegt ein Flugzeug Etappe für Etappe die Route ab, die Kamera folgt, und bereits gereiste Etappen bleiben als leuchtende Linie stehen.
+Eine Website, die deine Weltreise als Karten-Animation zeigt – von weit weg als 3D-Globus, beim Reinzoomen als gestochen scharfe Karte. Auf **Play** läuft jede Etappe wie in einem Reisevideo ab:
 
-- Globus per Finger drehen (ein Finger) und zoomen (zwei Finger)
+1. **Rauszoomen** vom Startort,
+2. das Fahrzeug **fährt die Route ab**, die Kamera folgt und die Linie wächst mit,
+3. am Ziel **reinzoomen** (leicht geneigt), Ortsname einblenden, kurz verweilen – dann weiter.
+
+Bereits gereiste Etappen bleiben als leuchtende Linie stehen.
+
+- Karte per Finger verschieben (ein Finger), zoomen und drehen (zwei Finger)
+- Zwei Kartenstile: **Karte** (Straßenkarte) und **Satellit** – Umschalter unten in der Leiste
 - Marker antippen → kleine Karte mit Ort, Datum und Notiz
 - Unten die Etappenleiste: antippen, um direkt zu einer Etappe zu springen
 - Pro Etappe ein Verkehrsmittel (Flugzeug, Auto, Boot) mit eigenem Symbol und eigener Farbe
@@ -32,6 +39,7 @@ Gut zu wissen:
 - Ob das Veröffentlichen fertig ist, siehst du im Reiter **Actions** (grüner Haken = fertig).
 - **Wie eine App:** Öffne die Seite in Safari → Teilen-Symbol → **„Zum Home-Bildschirm“**. Dann startet sie bildschirmfüllend mit eigenem Symbol.
 - Direkt aus der Dateien-App geöffnet funktioniert die Seite **nicht** (der Browser blockiert dann das Laden von `route.json`). Nutze immer die GitHub-Pages-Adresse.
+- Die Karte wird beim Zoomen stückweise („Kacheln“) aus dem Internet geladen. Ohne Internet geht es also nicht, und im Mobilfunknetz verbraucht ein kompletter Durchlauf einige Megabyte.
 
 ---
 
@@ -84,6 +92,7 @@ Die Datei enthält einen Titel und eine Liste von Stopps **in Reiserichtung**. Z
 | `verkehrsmittel` | Womit du **zu diesem Ort** reist: `"flugzeug"`, `"auto"` oder `"boot"`. Beim ersten Stopp egal (leer lassen). | `"boot"` |
 | `datum` | Ankunftsdatum. Am besten als `JJJJ-MM-TT`, dann wird daraus „14. März 2026“. Freier Text geht auch, z. B. `"Mitte März"`. | `"2026-03-14"` |
 | `notiz` | Beliebiger Text. Einen Zeilenumbruch schreibst du als `\n`. | `"Roller gemietet.\nTraumhaft!"` |
+| `zoom` | **Optional.** Wie nah die Kamera an diesen Ort heranzoomt. Standard ist `10` (Stadt mit Umland). Kleiner = weiter weg (z. B. `8` für eine ganze Insel), größer = näher dran (z. B. `12` für ein Stadtviertel). Feld einfach weglassen, wenn der Standard passt. | `8.5` |
 
 **Rundreise:** Der letzte Stopp ist wieder Konstanz. Orte mit gleichem Namen an (fast) derselben Stelle bekommen nur **einen** Marker. Die Infokarte zeigt dann beide Besuche (Start und Rückkehr).
 
@@ -102,7 +111,14 @@ Die Datei enthält einen Titel und eine Liste von Stopps **in Reiserichtung**. Z
 "verkehrsmittel": "boot"
 ```
 
-Flugzeug-Etappen werden als hoher Bogen über dem Globus gezeichnet, Auto und Boot fahren flach an der Oberfläche.
+Flugzeug-Etappen werden als geschwungener Bogen gezeichnet (wie auf Flugkarten), Auto und Boot als gerade Linie.
+
+**Näher ran oder weiter weg** – z. B. damit ganz Bali ins Bild passt, im Bali-Block eine Zeile ergänzen (Komma nicht vergessen):
+
+```json
+"notiz": "",
+"zoom": 8.5
+```
 
 **Stopp hinzufügen** – einen kompletten Block `{ … }` kopieren, an der richtigen Stelle der Reihenfolge einfügen und anpassen. Wichtig: Zwischen zwei Blöcken steht ein Komma, nach dem letzten Block keins.
 
@@ -130,9 +146,10 @@ Die Website zeigt bei Fehlern in `route.json` eine Meldung mit Hinweis auf die Z
 | Aktion | So geht's |
 |---|---|
 | Reise abspielen / pausieren | großer runder Button unten links |
-| Globus drehen / zoomen | ein Finger ziehen / zwei Finger auseinander. Während die Reise läuft, pausiert sie dabei automatisch; Play holt die Kamera zurück. |
+| Karte bewegen / zoomen | ein Finger ziehen / zwei Finger auseinander. Während die Reise läuft, pausiert sie dabei automatisch; Play holt die Kamera zurück. |
+| Kartenstil wechseln | Button mit den gestapelten Ebenen (Karte ↔ Satellit). Die Wahl wird gemerkt. |
 | Zu einer Etappe springen | Etappe in der Leiste unten antippen (Leiste ist seitlich wischbar) |
-| Infos zu einem Ort | Marker antippen; Schließen mit × oder Tippen auf den Globus |
+| Infos zu einem Ort | Marker antippen; Schließen mit × oder Tippen auf die Karte |
 | Tempo | Button `1×` → `2×` → `4×` |
 | Von vorne | Button mit dem Kreispfeil |
 | Tastatur (iPad mit Tastatur) | Leertaste = Play/Pause, ← / → = vorige/nächste Etappe, Esc = Karte schließen |
@@ -142,20 +159,19 @@ Die Website zeigt bei Fehlern in `route.json` eine Meldung mit Hinweis auf die Z
 ## 4. So ist der Code aufgebaut
 
 ```
-index.html         Gerüst der Seite: Ebenen (Sterne, Globus, Fahrzeug, Leiste),
-                   lädt globe.gl vom CDN und dann js/app.js
+index.html         Gerüst der Seite: Ebenen (Sterne, Karte, Leiste) – lädt js/app.js
 style.css          Aussehen (Farben stehen ganz oben als Variablen)
 route.json         deine Reisedaten
-assets/            Erd-Textur, Höhenrelief, App-Symbol
+assets/            App-Symbol
 js/
-  app.js           Startpunkt: lädt alles und verbindet die Teile
+  app.js           Startpunkt: lädt MapLibre vom CDN, liest die Route, verbindet die Teile
   route.js         liest und prüft route.json, berechnet die Etappen
-  geo.js           Mathe auf der Kugel: Entfernung, Großkreis, Bogen
+  geo.js           Mathe auf der Kugel: Entfernung, Großkreis, Bogen, Mercator
   transport.js     Verkehrsmittel: Namen, Farben, Symbole
-  globe.js         alles Sichtbare auf dem Globus: Linien, Marker, Fahrzeug, Kamera
+  map.js           alles Sichtbare: Karte, Linien, Marker, Fahrzeug, Kamera-Hilfen
   player.js        der Ablauf der Animation (Play, Pause, Springen …)
-  ui.js            Bedienleiste, Etappen-Chips, Infokarte, Hinweise
-  stars.js         Sternenhimmel im Hintergrund
+  ui.js            Bedienleiste, Orts-Banner, Etappen-Chips, Infokarte, Hinweise
+  stars.js         Sternenhimmel um den Globus
 ```
 
 ### Wie die Teile zusammenspielen
@@ -165,27 +181,28 @@ route.json ──► route.js ──► trip  (Stopps, Etappen, Orte)
                               │
           ┌───────────────────┼────────────────────┐
           ▼                   ▼                    ▼
-      globe.js  ◄──────── player.js ◄──────────  ui.js
+        map.js  ◄──────── player.js ◄──────────  ui.js
    (zeichnet nur)    (entscheidet, WAS WANN    (Buttons melden
                       passiert)                 „Play“, „Etappe 3“ …)
 ```
 
-- **Daten getrennt vom Code:** `route.js` macht aus `route.json` ein Objekt `trip`. Jede Etappe bekommt dabei schon ihre fertige Bogen-Kurve (Liste von Punkten mit Breite, Länge, Höhe).
-- **Zeichnen getrennt vom Ablauf:** `globe.js` weiß nicht, ob die Reise läuft. Es bietet nur Befehle wie „Kamera hierhin“, „Fahrzeug bei 40 % von Etappe 3“, „Etappe 2 zu 100 % gereist“.
-- **Der Ablauf als Zustandsmaschine:** `player.js` kennt für jede Etappe die Phasen `ready → approach → flight → arrival` (bereit → Kamera fährt hin → Fahrzeug fliegt → kurze Pause am Ziel). Die Buttons in `ui.js` rufen nur `play()`, `pause()` oder `jumpTo(3)` auf.
+- **Daten getrennt vom Code:** `route.js` macht aus `route.json` ein Objekt `trip`. Jede Etappe bekommt dabei schon ihre fertige Linie (Liste von Punkten `[Länge, Breite]`).
+- **Zeichnen getrennt vom Ablauf:** `map.js` weiß nicht, ob die Reise läuft. Es bietet nur Befehle wie „Kamera hierhin“, „Fahrzeug bei 40 % von Etappe 3“, „Nahansicht von Bali“.
+- **Der Ablauf als Zustandsmaschine:** `player.js` kennt für jede Etappe die Phasen `hold → rise → travel → descend → linger` (am Start verweilen → rauszoomen → fahren → am Ziel reinzoomen → verweilen). Für jede Phase gibt es eine Formel, wo die Kamera bei 0 %, 50 % oder 100 % der Phase steht. Die Buttons in `ui.js` rufen nur `play()`, `pause()` oder `jumpTo(3)` auf.
 
 ### Was bei jedem Bild passiert (ca. 60-mal pro Sekunde)
 
-1. three.js (in globe.gl enthalten) ist kurz davor, ein Bild zu zeichnen, und ruft `scene.onBeforeRender` auf.
+1. MapLibre ist kurz davor, ein Bild zu zeichnen, und ruft unsere Funktion `frame()` in `map.js` auf.
 2. `app.js` gibt die vergangene Zeit an `player.update(dt)` weiter.
-3. Der Player schiebt die Zeit weiter, rechnet den Fortschritt der Etappe aus (mit sanftem Anfahren und Abbremsen) und sagt `globe.js`, wo Kamera und Fahrzeug jetzt sind.
-4. `globe.js` aktualisiert Linie, Fahrzeug und Beschriftungen, dann zeichnet three.js das Bild.
+3. Der Player schiebt die Zeit weiter, rechnet aus, in welcher Phase welche Kamera dran ist, und sagt `map.js`, wo Kamera und Fahrzeug jetzt sind.
+4. `map.js` färbt die wachsende Linie ein Stück weiter, ordnet die Beschriftungen, dann zeichnet MapLibre das Bild.
 
-### Drei Tricks, die du im Code findest
+### Vier Tricks, die du im Code findest
 
-- **Großkreis-Bogen** (`geo.js`): Die kürzeste Verbindung auf einer Kugel ist ein Großkreis. Wir berechnen Punkte darauf mit „slerp“ und heben sie mit einer Sinuskurve an, so entsteht der Flugbogen.
-- **Linie „freilegen“** (`globe.js`): Statt die leuchtende Linie bei jedem Bild neu zu bauen, ist sie als gestrichelte Linie mit genau *einem* Strich angelegt. Dessen Länge entspricht dem Fortschritt. Das ist auf iPhone und iPad sehr sparsam.
-- **Beschriftungen weichen aus** (`globe.js`, `layoutLabels`): In Südostasien liegen viele Orte dicht beieinander. Jede Beschriftung probiert rechts, links, oben und unten; passt nichts, wird sie ausgeblendet, bis du näher heranzoomst. Wichtige Orte (aktuelle Etappe, angetippter Ort) kommen zuerst dran.
+- **Großkreis mit Schwung** (`geo.js`): Die kürzeste Verbindung auf einer Kugel ist ein Großkreis. Wir berechnen Punkte darauf mit „slerp“. Für Flüge schieben wir die Mitte der Strecke zusätzlich etwas zur Seite – so entsteht der typische Flugbogen.
+- **Wachsende Linie ohne Neubau** (`map.js`): Die aktuelle Etappe hat einen Farbverlauf entlang der Linie (`line-gradient`): bis zum Fortschritt farbig, danach durchsichtig. Bei jedem Bild wird nur diese eine Zahl geändert – das ist auf iPhone und iPad sehr sparsam.
+- **Kamera als Formel** (`player.js`, `cameraAt`): Rein- und Rauszoomen ist nichts anderes als „Zoomstufe von 10 nach 3 überblenden“, mit einer sanften Kurve (`easeInOutCubic`). Die Zoomstufe für eine Etappe berechnet `map.js` so, dass die ganze Strecke ins Bild passt.
+- **Beschriftungen weichen aus** (`map.js`, `layoutLabels`): In Südostasien liegen viele Orte dicht beieinander. Jede Beschriftung probiert rechts, links, oben und unten; passt nichts, wird sie ausgeblendet, bis du näher heranzoomst. Wichtige Orte (aktuelle Etappe, angetippter Ort) kommen zuerst dran.
 
 ### Selbst anpassen
 
@@ -194,14 +211,17 @@ route.json ──► route.js ──► trip  (Stopps, Etappen, Orte)
 | Farben der Seite | `style.css`, ganz oben (`:root`) |
 | Farben und Symbole der Verkehrsmittel | `js/transport.js` |
 | Neues Verkehrsmittel (z. B. Zug) | in `js/transport.js` einen Eintrag `zug: { … }` nach dem Muster der anderen anlegen, dann `"verkehrsmittel": "zug"` in `route.json` |
-| Tempo der Animation | `js/player.js`, Block `TIMING` |
-| Linienbreiten | `js/globe.js`, `LINE_WIDTH` |
-| Erd-Bild | Datei in `assets/` austauschen und den Pfad in `js/globe.js` (`TEXTURES`) anpassen |
+| Tempo, Pausen an den Orten | `js/player.js`, Block `TIMING` |
+| Standard-Zoom und Neigung der Nahansicht | `js/map.js`, Block `CAMERA` |
+| Linienbreiten | `js/map.js`, `LINE` |
+| Kartenstile (z. B. einen anderen Stil von OpenFreeMap) | `js/map.js`, Block `MAP_STYLES` |
 
 ---
 
 ## Technik und Danke
 
-- [globe.gl](https://github.com/vasturiano/globe.gl) (Version 2.46.2, über das CDN jsDelivr) – baut auf [three.js](https://threejs.org) auf.
-- Erd-Textur „Blue Marble“ und Höhenrelief stammen von der NASA, in der Aufbereitung aus den Beispielen von [three-globe](https://github.com/vasturiano/three-globe) (MIT-Lizenz).
-- Für flüssiges Laufen auf iPhone/iPad: keine 3D-Trefferabfragen, Linien werden nicht pro Bild neu gebaut, Sterne werden nur einmal gemalt, und die Pixeldichte ist auf 2 begrenzt.
+- [MapLibre GL JS](https://maplibre.org) (Version 6.15.0, über das CDN jsDelivr) – zeichnet Karte und Globus.
+- Kartenstil **Karte**: [OpenFreeMap](https://openfreemap.org) (kostenlos, ohne Anmeldung) mit Daten von © [OpenStreetMap](https://www.openstreetmap.org/copyright)-Mitwirkenden.
+- Kartenstil **Satellit**: Satellitenbilder von Esri (World Imagery). Gedacht für private, nicht-kommerzielle Nutzung.
+- Die Quellenangaben stehen auf der Seite hinter dem kleinen (i) oben rechts – bitte drin lassen, das verlangen die Kartenanbieter.
+- Für flüssiges Laufen auf iPhone/iPad: Die Animation rechnet direkt vor jedem Bild der Karte, Linien werden nicht neu gebaut, Sterne werden nur einmal gemalt, und die Pixeldichte ist auf 2 begrenzt.

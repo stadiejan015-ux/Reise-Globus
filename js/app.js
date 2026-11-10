@@ -2,20 +2,26 @@
 // app.js – der Startpunkt: lädt alles und verbindet die Teile
 // ---------------------------------------------------------------------
 //   route.js   → liest route.json und berechnet die Etappen
-//   globe.js   → zeichnet Globus, Linien, Marker und Fahrzeug
+//   map.js     → zeichnet Karte, Linien, Marker und Fahrzeug
 //   player.js  → steuert die Animation (Play, Pause, Springen …)
 //   ui.js      → Buttons, Etappenleiste, Infokarte
-//   stars.js   → Sternenhimmel
+//   stars.js   → Sternenhimmel um den Globus
 // =====================================================================
 
 import { loadTrip, RouteError } from './route.js';
-import { createGlobeView } from './globe.js';
+import { createMapView, MAP_STYLES } from './map.js';
 import { createPlayer } from './player.js';
 import { createUI } from './ui.js';
 import { drawStars } from './stars.js';
 
-// Falls das CDN jsDelivr einmal nicht erreichbar ist, nehmen wir unpkg.
-const GLOBE_FALLBACK_URL = 'https://unpkg.com/globe.gl@2.46.2/dist/globe.gl.min.js';
+// Kartenbibliothek MapLibre GL (feste Version). Falls das erste CDN einmal
+// nicht erreichbar ist, nehmen wir das zweite.
+const MAPLIBRE_URLS = [
+  'https://cdn.jsdelivr.net/npm/maplibre-gl@6.15.0/dist/maplibre-gl.mjs',
+  'https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.mjs',
+];
+
+const STYLE_STORAGE_KEY = 'reise-globus-kartenstil';
 
 start().catch(showError);
 
@@ -24,7 +30,7 @@ async function start() {
   drawStars(starsCanvas);
 
   const trip = await loadTrip('route.json');
-  await ensureGlobeLibrary();
+  const maplibregl = await loadMapLibre();
 
   let player = null;
   let selectedPlace = null;
@@ -34,26 +40,31 @@ async function start() {
     onPlay: () => player.toggle(),
     onRestart: () => player.reset(),
     onSpeed: () => player.cycleSpeed(),
+    onStyle: () => switchStyle(),
     onLeg: (index) => player.jumpTo(index),
     onCloseCard: () => selectPlace(null),
   });
 
-  // --- Globus -------------------------------------------------------
-  const view = createGlobeView(document.getElementById('globe'), trip, {
+  // --- Karte --------------------------------------------------------
+  const view = createMapView(maplibregl, document.getElementById('map'), trip, {
+    initialStyle: readSavedStyle(),
     onReady: () => {
       document.getElementById('loading').classList.add('is-done');
       showFirstVisitTip(ui);
     },
+    // Bei jedem Bild, solange die Reise läuft. Rückgabe: weiterlaufen?
     onFrame: (dt) => {
-      if (!player) return;
-      player.update(dt);
+      const keepGoing = player.update(dt);
       ui.setProgress(player.progress());
+      return keepGoing;
     },
     onMarkerTap: (place) => selectPlace(place === selectedPlace ? null : place),
-    onGlobeTap: () => selectPlace(null),
-    // Wer selbst am Globus dreht oder zoomt, übernimmt die Kamera → Pause.
+    onMapTap: () => selectPlace(null),
+    // Wer selbst die Karte verschiebt oder zoomt, übernimmt die Kamera → Pause.
     onUserCamera: () => player && player.pause(),
+    onStyleProblem: (failed, next) => ui.toast(`Der Kartenstil „${failed}“ lädt gerade nicht – ich zeige „${next}“.`),
   });
+  ui.setStyleName(MAP_STYLES[view.getStyle()].name);
 
   // --- Animation ----------------------------------------------------
   player = createPlayer(trip, view, refresh);
@@ -65,27 +76,48 @@ async function start() {
     refresh();
   }
 
+  function switchStyle() {
+    const next = view.getStyle() === 'karte' ? 'satellit' : 'karte';
+    view.setStyle(next);
+    ui.setStyleName(MAP_STYLES[next].name);
+    ui.toast(`Kartenstil: ${MAP_STYLES[next].name}`, 1800);
+    try {
+      localStorage.setItem(STYLE_STORAGE_KEY, next);
+    } catch {
+      // Speichern nicht möglich (privater Modus) – dann eben nicht merken.
+    }
+  }
+
   // Wird bei jeder Zustandsänderung aufgerufen: Oberfläche + Marker anpassen.
   function refresh() {
     const info = player.info();
     ui.render(info);
+    ui.setProgress(info.progress);
+    if (info.running) view.startLoop(); // Bild-für-Bild-Schleife anwerfen
 
-    const { leg, phase } = info;
-    const flying = phase === 'approach' || phase === 'flight';
+    const { leg, shownPhase } = info;
+    const traveling = ['rise', 'travel'].includes(shownPhase);
+    let activePlaces = [leg.to.place];
+    if (info.atStart || shownPhase === 'done') activePlaces = [];
+    else if (shownPhase === 'hold') activePlaces = [leg.from.place];
+    else if (traveling) activePlaces = [leg.from.place, leg.to.place];
+
     view.refreshMarkers({
       reachedStop: info.reachedStop,
-      activePlaces: info.atStart ? [] : flying ? [leg.from.place, leg.to.place] : [leg.to.place],
-      targetPlace: flying ? leg.to.place : null,
+      activePlaces,
+      targetPlace: traveling ? leg.to.place : null,
       selectedPlace,
     });
   }
 
-  // --- Größe & Layout -------------------------------------------------
+  // --- Layout ---------------------------------------------------------
+  // Titel oben und Leiste unten verdecken einen Teil der Karte. Die Karte
+  // bekommt diese Ränder mitgeteilt, damit ihre Mitte im freien Bereich liegt.
   function layout() {
-    view.resize();
     const { top, bottom } = ui.insets();
     view.setInsets(top, bottom);
     document.documentElement.style.setProperty('--panel-space', `${Math.round(bottom)}px`);
+    document.documentElement.style.setProperty('--banner-top', `${Math.round(top) + 10}px`);
   }
 
   let resizeTimer = null;
@@ -99,7 +131,7 @@ async function start() {
   if (window.ResizeObserver) new ResizeObserver(layout).observe(document.getElementById('panel'));
 
   layout();
-  view.setCamera(view.overviewPov());
+  view.setCamera(view.overviewCamera());
   refresh();
 
   // --- Tastatur (z. B. iPad mit Tastatur) -----------------------------
@@ -110,7 +142,7 @@ async function start() {
       e.preventDefault();
       player.toggle();
     } else if (e.key === 'ArrowRight') {
-      player.jumpTo(Math.min(trip.legs.length - 1, info.legIndex + (info.phase === 'ready' ? 0 : 1)));
+      player.jumpTo(Math.min(trip.legs.length - 1, info.atStart ? 0 : info.legIndex + 1));
     } else if (e.key === 'ArrowLeft') {
       player.jumpTo(Math.max(0, info.legIndex - 1));
     } else if (e.key === 'Escape') {
@@ -118,10 +150,30 @@ async function start() {
     }
   });
 
-  // Safari: Pinch-Zoom der ganzen Seite verhindern (der Globus zoomt selbst).
+  // Safari: Pinch-Zoom der ganzen Seite verhindern (die Karte zoomt selbst).
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 
   trip.warnings.forEach((warning) => ui.toast(warning, 10000));
+}
+
+// Lädt MapLibre GL – notfalls vom zweiten CDN.
+async function loadMapLibre() {
+  for (const url of MAPLIBRE_URLS) {
+    try {
+      return await import(url);
+    } catch (error) {
+      console.warn(`MapLibre von ${url} nicht geladen:`, error);
+    }
+  }
+  throw new Error('Die Kartenbibliothek MapLibre konnte nicht geladen werden. Besteht eine Internetverbindung?');
+}
+
+function readSavedStyle() {
+  try {
+    return localStorage.getItem(STYLE_STORAGE_KEY) || 'karte';
+  } catch {
+    return 'karte';
+  }
 }
 
 // Beim allerersten Besuch einen kurzen Bedienungs-Tipp zeigen.
@@ -133,18 +185,6 @@ function showFirstVisitTip(ui) {
     // Privater Modus o. Ä.: Tipp dann einfach jedes Mal zeigen.
   }
   ui.toast('Tipp: Tippe auf einen Ort für Details. Über die Leiste unten springst du zu jeder Etappe.', 8000);
-}
-
-// Lädt globe.gl notfalls von einem zweiten CDN nach.
-async function ensureGlobeLibrary() {
-  if (window.Globe) return;
-  await new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = GLOBE_FALLBACK_URL;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Die Globus-Bibliothek globe.gl konnte nicht geladen werden. Besteht eine Internetverbindung?'));
-    document.head.appendChild(script);
-  });
 }
 
 function showError(error) {
