@@ -137,7 +137,11 @@ export function buildTrip(data) {
       transportKey,
       transport,
       angle,
-      km,
+      km, // genaue Luftlinie (für die Dauer der Animation)
+      // Angezeigte Länge: auf ganze Kilometer gerundet. Alle Summen auf der
+      // Seite rechnen mit diesem Wert – so passen Einzelstrecken und
+      // Gesamtsumme immer exakt zusammen.
+      kmShown: Math.round(km),
       empty: km < 1,
       points, // [[lng, lat], …] für die Karte
       at: createRouteSampler(points), // at(0…1) → Position + Fahrtrichtung
@@ -208,7 +212,7 @@ export function buildTrip(data) {
     places,
     mainLegCount: stops.length - 1,
     excursionCount: segments.filter((s) => s.kind === 'excursion').length,
-    totalKm: legs.reduce((sum, leg) => sum + leg.km, 0),
+    totalKm: legs.reduce((sum, leg) => sum + leg.kmShown, 0),
     isRoundTrip: stops[0].place === stops[stops.length - 1].place,
     warnings,
   };

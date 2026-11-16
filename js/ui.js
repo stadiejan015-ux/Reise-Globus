@@ -5,6 +5,7 @@
 //  • Orts-Banner oben in der Mitte ("Bali · Indonesien"), wie im Reisevideo
 //  • Leiste unten: Play/Pause, Status, Tempo, Kartenstil, Neustart,
 //    Etappen und Ausflüge (als eingerückte Unterpunkte)
+//  • Kilometerzähler während der Fahrt und Gesamtsumme am Ende
 //  • Infokarte, wenn man einen Marker antippt
 //  • kleine Hinweis-Meldungen ("Toasts")
 // =====================================================================
@@ -27,6 +28,8 @@ export function createUI(trip, handlers) {
     speed: $('#btn-speed'),
     style: $('#btn-style'),
     banner: $('#banner'),
+    odometer: $('#odometer'),
+    endSummary: $('#summary'),
     statusTop: $('#status-top'),
     statusMain: $('#status-main'),
     progress: $('#progress-bar'),
@@ -72,12 +75,12 @@ export function createUI(trip, handlers) {
           <span class="leg-meta"><span class="leg-icon">${leg.transport.icon}</span><span class="leg-km"></span></span>
         </span>`;
       chip.querySelector('.leg-route').textContent = `${leg.from.name} → ${leg.to.name}`;
-      chip.querySelector('.leg-km').textContent = [formatKm(leg.km), date].filter(Boolean).join(' · ');
+      chip.querySelector('.leg-km').textContent = [formatKm(leg.kmShown), date].filter(Boolean).join(' · ');
       chip.setAttribute('aria-label', `Etappe ${segment.number}: ${leg.from.name} nach ${leg.to.name}, ${leg.transport.name}`);
     } else {
       // Verkehrsmittel des Ausflugs (ohne doppelte), z. B. Auto + Boot
       const transports = [...new Set(segment.subs.map((sub) => sub.transport))];
-      const km = segment.legs.reduce((sum, leg) => sum + leg.km, 0);
+      const km = segment.legs.reduce((sum, leg) => sum + leg.kmShown, 0);
       chip.className = 'leg is-excursion';
       chip.style.setProperty('--leg-color', segment.legs[0].transport.color);
       chip.innerHTML = `
@@ -226,8 +229,12 @@ export function createUI(trip, handlers) {
 
     // Orts-Banner: beim Start den Startort, bei jedem Halt das Ziel zeigen
     if (phase === 'hold') showBanner(leg.from);
-    else if (['descend', 'linger', 'arrived'].includes(phase) && pausesHere) showBanner(leg.to);
+    else if (['descend', 'linger', 'arrived'].includes(phase) && pausesHere) showBanner(leg.to, leg);
     else showBanner(null);
+
+    updateOdometer(info);
+    if (phase === 'done') showSummary();
+    else hideSummary();
 
     if (segment.index !== lastActive) {
       lastActive = segment.index;
@@ -235,10 +242,12 @@ export function createUI(trip, handlers) {
     }
   }
 
-  let bannerStop = null;
-  function showBanner(stop) {
-    if (stop === bannerStop) return;
-    bannerStop = stop;
+  // stop = Ort im Banner; leg = Etappe, mit der man angekommen ist (für die km)
+  let bannerKey = null;
+  function showBanner(stop, leg = null) {
+    const key = stop ? `${stop.name}|${leg ? leg.index : ''}` : null;
+    if (key === bannerKey) return;
+    bannerKey = key;
     if (!stop) {
       els.banner.classList.remove('is-visible');
       return;
@@ -246,12 +255,109 @@ export function createUI(trip, handlers) {
     // Ausflugsziele: "Ausflug ab Phnom Penh", sonst Land und Datum
     const date = formatDate(stop.date, longDate);
     const sub = stop.isSub ? `Ausflug ab ${stop.parent.name}` : [stop.country, date].filter(Boolean).join(' · ');
-    els.banner.innerHTML = '<span class="banner-title"></span><span class="banner-sub"></span>';
+    els.banner.innerHTML =
+      '<span class="banner-title"></span><span class="banner-sub"></span><span class="banner-km"></span><span class="banner-total"></span>';
     els.banner.querySelector('.banner-title').textContent = stop.name;
     els.banner.querySelector('.banner-sub').textContent = sub;
+    if (leg && !leg.empty) {
+      // "+ 4.719 km mit dem Flugzeug" – dieselbe Zahl, bei der der Zähler stehen blieb
+      const km = els.banner.querySelector('.banner-km');
+      km.style.setProperty('--leg-color', leg.transport.color);
+      km.innerHTML = `<span class="leg-icon">${leg.transport.icon}</span><span></span>`;
+      km.lastChild.textContent = `+ ${formatKm(leg.kmShown)}`;
+      els.banner.querySelector('.banner-total').textContent = `Gesamt ${formatKm(traveledKm())}`;
+    }
     els.banner.classList.remove('is-visible');
     void els.banner.offsetWidth; // Einblend-Animation neu starten
     els.banner.classList.add('is-visible');
+  }
+
+  // ---- Kilometerzähler ------------------------------------------------
+  // Während eine Etappe gefahren wird, zählt oben in der Mitte die Strecke
+  // hoch – und darunter die ganze bisherige Reise. Beide Zahlen werden jedes
+  // Mal neu aus dem Fortschritt der Etappen berechnet (nicht mitgezählt),
+  // deshalb stimmen sie auch nach einem Sprung oder einer Pause.
+  const traveledKm = () => trip.legs.reduce((sum, l) => sum + Math.round(l.progress * l.kmShown), 0);
+
+  let odometerLeg = null;
+  let odometerText = '';
+  function updateOdometer(info) {
+    const { leg, shownPhase } = info;
+    const show = (shownPhase === 'rise' || shownPhase === 'travel') && !leg.empty;
+    els.odometer.classList.toggle('is-visible', show);
+    if (!show) return;
+
+    if (odometerLeg !== leg) {
+      odometerLeg = leg;
+      odometerText = '';
+      els.odometer.style.setProperty('--leg-color', leg.transport.color);
+      els.odometer.innerHTML = `
+        <span class="odo-main"><span class="leg-icon">${leg.transport.icon}</span><span class="odo-value"></span><span class="odo-unit">km</span></span>
+        <span class="odo-total"></span>`;
+    }
+    const legKm = Math.round(leg.progress * leg.kmShown);
+    const total = traveledKm();
+    const text = `${legKm}|${total}`;
+    if (text === odometerText) return; // nur schreiben, wenn sich die Zahl ändert
+    odometerText = text;
+    els.odometer.querySelector('.odo-value').textContent = numberFormat.format(legKm);
+    els.odometer.querySelector('.odo-total').textContent = `Gesamt ${formatKm(total)}`;
+  }
+
+  // ---- Gesamtsumme am Ende ----------------------------------------------
+  // Zählt alle Strecken zusammen – insgesamt und je Verkehrsmittel.
+  let summaryAnimation = null;
+  els.endSummary.addEventListener('click', () => hideSummary());
+
+  function showSummary() {
+    if (!els.endSummary.hidden) return;
+    const rows = {};
+    trip.legs.forEach((leg) => {
+      if (leg.empty) return;
+      if (!rows[leg.transportKey]) rows[leg.transportKey] = { km: 0, count: 0 };
+      rows[leg.transportKey].km += leg.kmShown;
+      rows[leg.transportKey].count += 1;
+    });
+    const keys = Object.keys(TRANSPORT).filter((key) => rows[key]);
+
+    els.endSummary.innerHTML = `
+      <p class="summary-kicker">Gesamtstrecke</p>
+      <p class="summary-total"><span class="count" data-target="${trip.totalKm}">0</span> km</p>
+      <div class="summary-rows">
+        ${keys
+          .map(
+            (key) => `
+          <div class="summary-row" style="--leg-color:${TRANSPORT[key].color}">
+            <span class="leg-icon">${TRANSPORT[key].icon}</span>
+            <span class="summary-name">${TRANSPORT[key].name} <span class="muted-small">· ${rows[key].count} ${rows[key].count === 1 ? 'Strecke' : 'Strecken'}</span></span>
+            <span class="summary-km"><span class="count" data-target="${rows[key].km}">0</span> km</span>
+          </div>`
+          )
+          .join('')}
+      </div>
+      <p class="summary-hint">Tippen zum Schließen</p>`;
+    els.endSummary.hidden = false;
+
+    // Hochzählen: 0 → Zielwert in 2,2 Sekunden, am Ende langsamer
+    const counters = [...els.endSummary.querySelectorAll('.count')];
+    const start = performance.now();
+    const duration = 2200;
+    cancelAnimationFrame(summaryAnimation);
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      counters.forEach((el) => {
+        el.textContent = numberFormat.format(Math.round(Number(el.dataset.target) * eased));
+      });
+      if (t < 1) summaryAnimation = requestAnimationFrame(step);
+    };
+    summaryAnimation = requestAnimationFrame(step);
+  }
+
+  function hideSummary() {
+    if (els.endSummary.hidden) return;
+    cancelAnimationFrame(summaryAnimation);
+    els.endSummary.hidden = true;
   }
 
   function setStyleName(name) {
@@ -292,7 +398,7 @@ export function createUI(trip, handlers) {
     };
   }
 
-  return { render, setProgress, openCard, closeCard, toast, insets, setStyleName };
+  return { render, setProgress, updateOdometer, openCard, closeCard, toast, insets, setStyleName };
 }
 
 // ---------------------------------------------------------------------
@@ -300,7 +406,7 @@ export function createUI(trip, handlers) {
 // ---------------------------------------------------------------------
 
 function formatKm(km) {
-  return `${numberFormat.format(Math.round(km / 10) * 10)} km`;
+  return `${numberFormat.format(Math.round(km))} km`;
 }
 
 // "2026-03-14" → "14. März 2026". Anderer Text wird so angezeigt, wie er ist.
