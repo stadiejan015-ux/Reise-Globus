@@ -100,7 +100,16 @@ Die Datei enthält einen Titel und eine Liste von Stopps **in Reiserichtung**. Z
 
 ### Kilometer
 
-Die Kilometer werden automatisch aus den Koordinaten berechnet (Luftlinie auf der Erdkugel) – du musst nichts eintragen. Jede Strecke wird auf ganze Kilometer gerundet; alle Summen auf der Seite (oben, in der Leiste, im Zähler und am Ende) rechnen mit genau diesen Werten, deshalb passen sie immer zusammen. Echte Straßen- oder Flugrouten sind meist etwas länger als die Luftlinie.
+Die Kilometer werden automatisch berechnet – du musst nichts eintragen. Flug und Boot: Luftlinie auf der Erdkugel. Auto: echte Straßenkilometer (siehe unten). Jede Strecke wird auf ganze Kilometer gerundet; alle Summen auf der Seite (oben, in der Leiste, im Zähler und am Ende) rechnen mit genau diesen Werten, deshalb passen sie immer zusammen. Echte Straßen- oder Flugrouten sind meist etwas länger als die Luftlinie.
+
+### Autofahrten folgen Straßen
+
+Auto-Etappen werden nicht als gerade Linie gezeichnet, sondern entlang echter Straßen. Das passiert automatisch für jede Etappe mit `"verkehrsmittel": "auto"` – auch für neue, die du einträgst.
+
+- Beim Öffnen der Seite fragt der Browser den Straßenverlauf bei einem kostenlosen Routing-Dienst ab, der mit OpenStreetMap-Daten arbeitet (FOSSGIS – derselbe Dienst wie bei openstreetmap.org; als Reserve der OSRM-Demoserver). Dafür werden die Koordinaten der Auto-Etappen an den Dienst geschickt.
+- Hin- und Rückweg nutzen dieselbe Route. Das Ergebnis merkt sich der Browser; beim nächsten Öffnen wird nicht mehr gefragt (erst wieder, wenn du Koordinaten änderst).
+- Ist der Dienst nicht erreichbar oder gibt es keine Straße (z. B. zu einer Insel), erscheint ein Hinweis und die Etappe wird als gerade Linie gezeigt. Beim nächsten Öffnen wird es erneut versucht.
+- Der Ortspunkt liegt meist in der Stadtmitte; die Linie verbindet ihn mit der nächsten Straße.
 
 ### Ausflüge (Unterpunkte)
 
@@ -202,6 +211,7 @@ assets/            App-Symbol
 js/
   app.js           Startpunkt: lädt MapLibre vom CDN, liest die Route, verbindet die Teile
   route.js         liest und prüft route.json, berechnet Etappen und Ausflüge
+  roads.js         holt für Auto-Etappen den Straßenverlauf (mit Zwischenspeicher)
   geo.js           Mathe auf der Kugel: Entfernung, Großkreis, Bogen, Mercator
   transport.js     Verkehrsmittel: Namen, Farben, Symbole
   map.js           alles Sichtbare: Karte, Linien, Marker, Fahrzeug, Kamera-Hilfen
