@@ -6,7 +6,7 @@ Eine Website, die deine Weltreise als Karten-Animation zeigt – von weit weg al
 2. das Fahrzeug **fährt die Route ab**, die Kamera folgt und die Linie wächst mit,
 3. am Ziel **reinzoomen** (leicht geneigt), Ortsname einblenden, kurz verweilen – dann weiter.
 
-Bereits gereiste Etappen bleiben als leuchtende Linie stehen. **Ausflüge** von einem Ort aus (z. B. mit dem Auto nach Dubai und zurück) laufen als Unterpunkte mit – dabei bleibt die Kamera nah dran im Land.
+Bereits gereiste Etappen bleiben als leuchtende Linie stehen. Während jeder Fahrt zählt oben ein **Kilometerzähler** mit (Strecke und bisherige Gesamtsumme), bei der Ankunft steht die Strecke im Orts-Banner, und **am Ende** werden alle Kilometer zusammengezählt – insgesamt und je Verkehrsmittel. **Ausflüge** von einem Ort aus (z. B. mit dem Auto nach Dubai und zurück) laufen als Unterpunkte mit – dabei bleibt die Kamera nah dran im Land.
 
 - Karte per Finger verschieben (ein Finger), zoomen und drehen (zwei Finger)
 - Zwei Kartenstile: **Karte** (Straßenkarte) und **Satellit** – Umschalter unten in der Leiste
@@ -97,6 +97,10 @@ Die Datei enthält einen Titel und eine Liste von Stopps **in Reiserichtung**. Z
 | `unterpunkte` | **Optional.** Ausflüge von diesem Ort aus – siehe unten. | |
 
 **Rundreise:** Der letzte Stopp ist wieder Konstanz. Orte mit gleichem Namen an (fast) derselben Stelle bekommen nur **einen** Marker. Die Infokarte zeigt dann beide Besuche (Start und Rückkehr).
+
+### Kilometer
+
+Die Kilometer werden automatisch aus den Koordinaten berechnet (Luftlinie auf der Erdkugel) – du musst nichts eintragen. Jede Strecke wird auf ganze Kilometer gerundet; alle Summen auf der Seite (oben, in der Leiste, im Zähler und am Ende) rechnen mit genau diesen Werten, deshalb passen sie immer zusammen. Echte Straßen- oder Flugrouten sind meist etwas länger als die Luftlinie.
 
 ### Ausflüge (Unterpunkte)
 

@@ -56,6 +56,7 @@ async function start() {
     onFrame: (dt) => {
       const keepGoing = player.update(dt);
       ui.setProgress(player.progress());
+      ui.updateOdometer(player.info());
       return keepGoing;
     },
     onMarkerTap: (place) => selectPlace(place === selectedPlace ? null : place),
