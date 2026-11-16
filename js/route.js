@@ -23,6 +23,7 @@ import {
   toMercator,
 } from './geo.js';
 import { TRANSPORT, resolveTransportKey } from './transport.js';
+import { loadRoadRoutes } from './roads.js';
 
 // Ein Fehler, den wir der Person verständlich anzeigen können.
 export class RouteError extends Error {
@@ -51,7 +52,24 @@ export async function loadTrip(url) {
     throw new RouteError(`route.json wurde nicht gefunden (Fehler ${response.status}).`);
   }
   const data = parseJson(await response.text());
-  return buildTrip(data);
+
+  // Erst prüfen und Etappen kennen, dann für Auto-Etappen den
+  // Straßenverlauf holen und die Reise damit endgültig berechnen.
+  const draft = buildTrip(data);
+  const carPairs = draft.legs
+    .filter((leg) => leg.transport.followsRoads && !leg.empty)
+    .map((leg) => [leg.from, leg.to]);
+  if (!carPairs.length) return draft;
+
+  const roads = await loadRoadRoutes(carPairs);
+  const trip = buildTrip(data, roads.getRoad);
+  if (roads.failed.length) {
+    trip.warnings.push(
+      `Straßenverlauf nicht verfügbar für ${roads.failed.join(', ')} – ich zeige dort eine gerade Linie. ` +
+        'Beim nächsten Öffnen wird es erneut versucht.'
+    );
+  }
+  return trip;
 }
 
 function parseJson(text) {
@@ -91,7 +109,9 @@ function guessJsonProblem(text) {
   return '';
 }
 
-export function buildTrip(data) {
+// getRoad(von, nach) liefert für Auto-Etappen den Straßenverlauf
+// ({ points, km }) oder null – dann wird eine gerade Linie gezeichnet.
+export function buildTrip(data, getRoad = () => null) {
   const warnings = [];
   const rawStops = Array.isArray(data) ? data : data && data.stopps;
 
@@ -126,10 +146,13 @@ export function buildTrip(data) {
     const km = distanceKm(from, to);
     if (km < 1) warnings.push(`${from.name} und ${to.name} liegen am selben Ort – diese Etappe wird übersprungen.`);
 
-    // Flüge biegen sich als Bogen aus, Auto und Boot fahren gerade.
+    // Auto: dem Straßenverlauf folgen, falls bekannt. Sonst: Flüge biegen sich
+    // als Bogen aus, Boot (und Auto ohne Straßendaten) fährt gerade.
     // Ein Punkt pro halbem Grad (mindestens 32) sorgt für eine glatte Linie.
+    const road = transport.followsRoads && km >= 1 ? getRoad(from, to) : null;
     const steps = Math.round(clamp((angle / DEG) * 2, 32, 360));
-    const points = buildRoutePoints(from, to, transport.bow, steps);
+    const points = road ? connectRoad(from, road.points, to) : buildRoutePoints(from, to, transport.bow, steps);
+    const length = road ? road.km : km; // Straßenkilometer statt Luftlinie
     const leg = {
       index: legs.length,
       from,
@@ -137,11 +160,12 @@ export function buildTrip(data) {
       transportKey,
       transport,
       angle,
-      km, // genaue Luftlinie (für die Dauer der Animation)
+      km: length, // Strecke in km: Straße (Auto) oder Luftlinie
+      onRoad: Boolean(road),
       // Angezeigte Länge: auf ganze Kilometer gerundet. Alle Summen auf der
       // Seite rechnen mit diesem Wert – so passen Einzelstrecken und
       // Gesamtsumme immer exakt zusammen.
-      kmShown: Math.round(km),
+      kmShown: Math.round(length),
       empty: km < 1,
       points, // [[lng, lat], …] für die Karte
       at: createRouteSampler(points), // at(0…1) → Position + Fahrtrichtung
@@ -284,6 +308,18 @@ function readSubPoints(list, parent, label, warnings) {
     sub.subs = [];
     return sub;
   });
+}
+
+// Die Straße beginnt meist nicht genau am Ortspunkt (der liegt z. B. in der
+// Stadtmitte). Deshalb Ortspunkt → Straße → Ortspunkt verbinden.
+function connectRoad(from, roadPoints, to) {
+  const start = [from.lng, from.lat];
+  const end = [to.lng, to.lat];
+  const same = (p, q) => Math.abs(p[0] - q[0]) < 1e-5 && Math.abs(p[1] - q[1]) < 1e-5;
+  const points = roadPoints.map((p) => [p[0], p[1]]);
+  if (!same(points[0], start)) points.unshift(start);
+  if (!same(points[points.length - 1], end)) points.push(end);
+  return points;
 }
 
 // Ausdehnung einer Linie in Mercator-Koordinaten (0…1).

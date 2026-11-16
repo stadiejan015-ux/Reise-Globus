@@ -7,6 +7,7 @@
 //   glow     – Farbe des weichen Leucht-Saums um die Linie
 //   bow      – wie stark die Linie seitlich ausbiegt (Flug: geschwungener
 //              Bogen wie auf Flugkarten; 0 = gerade Linie)
+//   followsRoads – true: Linie folgt echten Straßen (Auto)
 //   vehicle  – SVG von oben gesehen, Spitze zeigt nach oben. Es wird
 //              automatisch in Fahrtrichtung gedreht.
 //   icon     – kleines Symbol für Leiste und Karte
@@ -67,6 +68,7 @@ export const TRANSPORT = {
     color: '#22a95b',
     glow: '#6fdc8c',
     bow: 0,
+    followsRoads: true, // Linie folgt echten Straßen (siehe roads.js)
     vehicle: VEHICLE_CAR,
     icon: ICON_CAR,
   },
