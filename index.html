@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <!-- Grund-Styles der Kartenbibliothek MapLibre GL (feste Version) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.15.0/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2026-11-16">
 </head>
 <body>
   <!-- Ebene 1: Sternenhimmel -->
@@ -59,8 +59,26 @@
   </div>
   <div id="error" class="error" hidden></div>
 
+  <!-- Versionsnummer gegen alte Dateien im Browser-Zwischenspeicher:
+       Bei jeder neuen Version hier (und oben bei style.css) das Datum ändern.
+       Dann lädt jeder Browser garantiert die neuen Dateien. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "./js/app.js": "./js/app.js?v=2026-11-16",
+      "./js/geo.js": "./js/geo.js?v=2026-11-16",
+      "./js/map.js": "./js/map.js?v=2026-11-16",
+      "./js/player.js": "./js/player.js?v=2026-11-16",
+      "./js/roads.js": "./js/roads.js?v=2026-11-16",
+      "./js/route.js": "./js/route.js?v=2026-11-16",
+      "./js/stars.js": "./js/stars.js?v=2026-11-16",
+      "./js/transport.js": "./js/transport.js?v=2026-11-16",
+      "./js/ui.js": "./js/ui.js?v=2026-11-16"
+    }
+  }
+  </script>
   <!-- Unser eigener Code (ES-Module, kein Build-Schritt nötig).
        MapLibre GL wird von js/app.js nachgeladen. -->
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=2026-11-16"></script>
 </body>
 </html>

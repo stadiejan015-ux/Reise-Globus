@@ -39,6 +39,7 @@ Gut zu wissen:
 - Ob das Veröffentlichen fertig ist, siehst du im Reiter **Actions** (grüner Haken = fertig).
 - **Wie eine App:** Öffne die Seite in Safari → Teilen-Symbol → **„Zum Home-Bildschirm“**. Dann startet sie bildschirmfüllend mit eigenem Symbol.
 - Direkt aus der Dateien-App geöffnet funktioniert die Seite **nicht** (der Browser blockiert dann das Laden von `route.json`). Nutze immer die GitHub-Pages-Adresse.
+- **Neue Version nicht zu sehen?** Browser speichern Dateien eine Weile zwischen. In `index.html` stehen deshalb Versionsnummern (`?v=…`). Wer am Code etwas ändert, setzt dort überall das aktuelle Datum ein – dann lädt jeder Browser die neuen Dateien. Für Änderungen an `route.json` ist das nicht nötig.
 - Die Karte wird beim Zoomen stückweise („Kacheln“) aus dem Internet geladen. Ohne Internet geht es also nicht, und im Mobilfunknetz verbraucht ein kompletter Durchlauf einige Megabyte.
 
 ---
